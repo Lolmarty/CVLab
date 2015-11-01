@@ -105,12 +105,13 @@ private:
 	Mat sprite_mask;
 	VideoWriter writer;
 	ofstream logger;
+	bool debug;
 
 public:
 
-
-	GenericClassnameOneGenerator9000(VideoSourceWrapper extern_wrapper, string output_path,string log_name, string sprite_name)
+	GenericClassnameOneGenerator9000(VideoSourceWrapper extern_wrapper, string output_path,string log_name, string sprite_name, bool extern_debug)
 	{
+		debug = extern_debug;
 		sprite = imread(sprite_name, CV_LOAD_IMAGE_UNCHANGED);
 		Rect sprite_roi_rect(SPRITE_BG_WIDTH, SPRITE_BG_HEIGHT, sprite.cols - SPRITE_BG_WIDTH, sprite.rows - SPRITE_BG_HEIGHT);
 		Mat bg_model, fg_model;
@@ -211,9 +212,11 @@ public:
 		Mat new_sprite = Rotate(Deform(sprite, velocity), angle);
 		int y = gen() % (current_frame.rows - new_sprite.rows);
 		int x = gen() % (current_frame.cols - new_sprite.cols);
-		while (true)
+		bool running = true;
+		while (running)
 		{
 			current_frame = wrapper.GetNextFrame();
+			if (current_frame.empty()) break;
 			double dv = gen() % STEP_V;
 			double da = gen() % STEP_A;
 			if (velocity + sign_v*dv <= 0 || velocity + sign_v*dv >= MAX_VELOCITY) sign_v *= -1;
@@ -229,18 +232,28 @@ public:
 			dy = (int)(velocity*sin(CV_PI*angle / 180));
 			y += dy;
 			x += dx;
-			new_sprite = Rotate(Deform(sprite, velocity), angle);
-			Mat new_mask = Rotate(Deform(sprite_mask, velocity), angle);
+			new_sprite = Rotate(Deform(sprite, velocity), -angle);
+			Mat new_mask = Rotate(Deform(sprite_mask, velocity), -angle);
 			new_sprite.copyTo(current_frame.rowRange(y, y + new_sprite.rows).colRange(x, x + new_sprite.cols), new_mask);
-			rectangle(current_frame, Rect(x, y, new_sprite.cols, new_sprite.rows), Scalar(0, 0, 0), 1);
-			char* text = new char[10];
-			sprintf(text,"a:%f v:%f", angle, velocity);
-			putText(current_frame, text, Point(x, y), FONT_HERSHEY_PLAIN, 1, Scalar(0, 0, 0, 255), 1);
-			imshow(MAIN_WINDOW_NAME, current_frame);
 			WriteFrame(current_frame);
-			WritePosition(x, y);
-			if (waitKey(50) >= 0)
-				break;
+			int object_center_x = x + new_sprite.cols / 2;
+			int object_center_y = y + new_sprite.rows / 2;
+			WritePosition(object_center_x, object_center_y);
+			if (debug)
+			{
+				rectangle(current_frame, Rect(x, y, new_sprite.cols, new_sprite.rows), Scalar(0, 0, 0), 1);
+				char* text = new char[10];
+				sprintf(text, "a:%f v:%f", angle, velocity);
+				putText(current_frame, text, Point(x, y), FONT_HERSHEY_PLAIN, 1, Scalar(0, 0, 0, 255), 1);
+				line(current_frame, Point(object_center_x, object_center_y), Point(object_center_x + 5, object_center_y + 5), Scalar(0, 0, 0), 2);
+			}
+			imshow(MAIN_WINDOW_NAME, current_frame);
+			switch (waitKey(50))
+			{
+			case 'd':debug = !debug; break;
+			case 'D':debug = !debug; break;
+			case 27: running = false; break;
+			}
 		}
 	}
 
@@ -287,6 +300,8 @@ int main(int argc, char* argv[])
 	optparse.add_option("--spfile").help("select source for sprite");
 	optparse.add_option("--outvideo").help("select file for video output");
 	optparse.add_option("--outlog").help("select file for log output");
+	optparse.add_option("--debug").action("store_true").help("show debug box");
+
 
 	Values& options = optparse.parse_args(argc, argv);
 
@@ -297,8 +312,8 @@ int main(int argc, char* argv[])
 	case ImageMode:wrapper = VideoSourceWrapper(imread(options["bgfile"])); break;
 	case CamMode:wrapper = VideoSourceWrapper(VideoCapture(0)); break;
 	}
-	
-	GenericClassnameOneGenerator9000 gc(wrapper, options["outvideo"], options["outlog"], options["spfile"]);
+
+	GenericClassnameOneGenerator9000 gc(wrapper, options["outvideo"], options["outlog"], options["spfile"], options.is_set("debug"));
 	gc.Routine2();
 	return 0;
 }
