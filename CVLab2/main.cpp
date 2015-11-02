@@ -50,7 +50,7 @@ void GetHSVBoundaries(Mat frame, Scalar& hsv_min, Scalar& hsv_max)
 void main()
 {
 	bool debug = false;
-	VideoCapture capture = VideoCapture("d:\\poop8.avi");
+	VideoCapture capture = VideoCapture("../assets/poop8.avi");
 	Mat prev_gray_frame, curr_gray_frame, curr_frame, diff_frame, thre_frame;
 	bool running = true;
 	capture.read(prev_gray_frame);
