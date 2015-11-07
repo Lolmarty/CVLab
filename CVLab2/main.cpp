@@ -19,17 +19,17 @@ using namespace std;
 
 class GenericClassnameTracker9000
 {
-	bool mouse_is_dragging;//used for showing a rectangle on screen as user clicks and drags mouse
-	bool mouse_is_moving;
-	bool rectangle_selected;
-	Point initial_click_point, current_mouse_point; //keep track of initial point clicked and current position of mouse
-	Rect rectangleROI;
+	static bool mouse_is_dragging;
+	static bool mouse_is_moving;
+	static bool rectangle_selected;
+	static Point initial_click_point, current_mouse_point;
 public:
-	Scalar hsv_min, hsv_max;
+	static Scalar hsv_min;
+	static Scalar hsv_max;
 	GenericClassnameTracker9000(){}
 	~GenericClassnameTracker9000(){}
 
-	void GetHSVBoundaries(Mat frame)
+	static void GetHSVBoundaries(Mat frame)
 	{
 		hsv_min = Scalar(0, 0, 0);
 		hsv_max = Scalar(255, 255, 255);
@@ -50,9 +50,7 @@ public:
 		}
 	}
 
-	void clickAndDragRectangle(int event, int x, int y, int flags, void* param){
-		//only if calibration mode is true will we use the mouse to change HSV values
-		//get handle to video feed passed in as "param" and cast as Mat pointer
+	static void ClickAndDragRectangle(int event, int x, int y, int flags, void* param){
 		Mat* videoFeed = (Mat*)param;
 		if (!mouse_is_dragging && event == CV_EVENT_LBUTTONDOWN)
 		{
@@ -75,29 +73,31 @@ public:
 			/* user has released left button */
 			case CV_EVENT_LBUTTONUP:
 			{
-				//set rectangle ROI to the rectangle that the user has selected
-				rectangleROI = Rect(initial_click_point, current_mouse_point);
-
 				//reset boolean variables
 				mouse_is_dragging = false;
 				mouse_is_moving = false;
 				rectangle_selected = true;
+				Mat hsv_feed;
+				cvtColor(*videoFeed, hsv_feed, CV_BGR2HSV);
+				Mat chunk(hsv_feed, Rect(initial_click_point, current_mouse_point));
+				GetHSVBoundaries(chunk);
 			}
 			}
-
-			imshow(MAIN_WINDOW, *videoFeed);
-		
+			Mat image(*videoFeed);
+			rectangle(image, initial_click_point, current_mouse_point, Scalar(0, 0, 0));
+			imshow(MAIN_WINDOW, image);
+			waitKey(50);
 		}
 
 		if (event == CV_EVENT_RBUTTONDOWN){
 			//user has clicked right mouse button
 			//Reset HSV Values
-			H_MIN = 0;
+			/*H_MIN = 0;
 			S_MIN = 0;
 			V_MIN = 0;
 			H_MAX = 255;
 			S_MAX = 255;
-			V_MAX = 255;
+			V_MAX = 255;*/
 
 		}
 		if (event == CV_EVENT_MBUTTONDOWN){
@@ -105,67 +105,96 @@ public:
 			//user has clicked middle mouse button
 			//enter code here if needed.
 		}
+		cout << "mouse_is_dragging" << mouse_is_dragging << " " << "mouse_is_moving" << mouse_is_moving << " " << "rectangle_selected" << rectangle_selected << " " << "initial_click_point" << initial_click_point.x << " " << initial_click_point.y << " " << "current_mouse_point" << current_mouse_point.x << " " << current_mouse_point.y << " " << endl;
+	}
 
+	void Routine()
+	{
+		bool debug = false;
+		VideoCapture capture = VideoCapture("../assets/poop0.avi");
+		Mat prev_gray_frame, curr_gray_frame, curr_bgr_frame, curr_hsv_frame, diff_frame, thre_frame;
+		bool running = true;
+		capture.read(curr_bgr_frame);
+		namedWindow(MAIN_WINDOW);
+		setMouseCallback(MAIN_WINDOW, ClickAndDragRectangle, &curr_bgr_frame);
+		capture.read(prev_gray_frame);
+		cvtColor(prev_gray_frame, prev_gray_frame, COLOR_BGR2GRAY);
+
+		while (running)
+		{
+			capture.read(curr_bgr_frame);
+			if (curr_bgr_frame.empty()) break;
+			cvtColor(curr_bgr_frame, curr_gray_frame, COLOR_BGR2GRAY);
+
+			absdiff(curr_gray_frame, prev_gray_frame, diff_frame);
+			threshold(diff_frame, thre_frame, SENSITIVITY_VALUE, 255, THRESH_BINARY);
+			//blur(thre_frame, thre_frame, Size(BLUR_SIZE, BLUR_SIZE));
+			//threshold(thre_frame, thre_frame, SENSITIVITY_VALUE, 255, THRESH_BINARY);
+
+			Mat element = getStructuringElement(MORPH_RECT, Size(BLUR_SIZE, BLUR_SIZE));
+			morphologyEx(thre_frame, thre_frame, MORPH_CLOSE, element);
+
+			Rect object_bounding_rectangle;
+			Point2d last_position;
+			vector< vector<Point> > contours;
+			vector<Vec4i> hierarchy;
+
+			findContours(thre_frame, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);// retrieves external contours
+			for (vector<Point> contour : contours)
+			{
+				object_bounding_rectangle = boundingRect(contour);
+				rectangle(curr_bgr_frame, object_bounding_rectangle, Scalar(0, 0, 0));
+				cvtColor(curr_bgr_frame, curr_hsv_frame, CV_BGR2HSV);
+				Mat chunk(curr_hsv_frame, object_bounding_rectangle);
+				GetHSVBoundaries(chunk);
+			}
+
+			imshow(MAIN_WINDOW, curr_bgr_frame);
+			if (debug){
+				imshow(MAIN_WINDOW, diff_frame);
+				waitKey(100);
+				imshow(MAIN_WINDOW, thre_frame);
+				waitKey(100);
+				imshow(MAIN_WINDOW, curr_gray_frame);
+				waitKey(100);
+			}
+			prev_gray_frame = curr_gray_frame.clone();
+			switch (waitKey(200))
+			{
+			case 'd':debug = !debug; break;
+			case 'D':debug = !debug; break;
+			case 27: running = false; break;
+			case 'p':
+			{
+				bool paused = true;
+				while (paused)
+				{
+					switch (waitKey(50))
+					{
+					case 'p':paused = false; break;
+					case 'P':paused = false; break;
+					case 27: paused = false; running = false; break;
+					}
+				}
+				break;
+			}
+			}
+		}
+		cvDestroyWindow(MAIN_WINDOW);
 	}
 };
 
+bool GenericClassnameTracker9000::mouse_is_dragging = false;
+bool GenericClassnameTracker9000::mouse_is_moving = false;
+bool GenericClassnameTracker9000::rectangle_selected = false;
+Point GenericClassnameTracker9000::initial_click_point = Point();
+Point GenericClassnameTracker9000::current_mouse_point = Point();
+Scalar GenericClassnameTracker9000::hsv_min = Scalar(0, 0, 0);
+Scalar GenericClassnameTracker9000::hsv_max = Scalar(255, 255, 255);
+//gee this is stupid
 
 
-void recordHSV_Values(cv::Mat frame, cv::Mat hsv_frame){
 
-	//save HSV values for ROI that user selected to a vector
-	if (mouseMove == false && rectangleSelected == true){
-
-		//clear previous vector values
-		if (H_ROI.size()>0) H_ROI.clear();
-		if (S_ROI.size()>0) S_ROI.clear();
-		if (V_ROI.size()>0)V_ROI.clear();
-		//if the rectangle has no width or height (user has only dragged a line) then we don't try to iterate over the width or height
-		if (rectangleROI.width<1 || rectangleROI.height<1) cout << "Please drag a rectangle, not a line" << endl;
-		else{
-			for (int i = rectangleROI.x; i<rectangleROI.x + rectangleROI.width; i++){
-				//iterate through both x and y direction and save HSV values at each and every point
-				for (int j = rectangleROI.y; j<rectangleROI.y + rectangleROI.height; j++){
-					//save HSV value at this point
-					H_ROI.push_back((int)hsv_frame.at<cv::Vec3b>(j, i)[0]);
-					S_ROI.push_back((int)hsv_frame.at<cv::Vec3b>(j, i)[1]);
-					V_ROI.push_back((int)hsv_frame.at<cv::Vec3b>(j, i)[2]);
-				}
-			}
-		}
-		//reset rectangleSelected so user can select another region if necessary
-		rectangleSelected = false;
-		//set min and max HSV values from min and max elements of each array
-
-		if (H_ROI.size()>0){
-			//NOTE: min_element and max_element return iterators so we must dereference them with "*"
-			H_MIN = *std::min_element(H_ROI.begin(), H_ROI.end());
-			H_MAX = *std::max_element(H_ROI.begin(), H_ROI.end());
-			cout << "MIN 'H' VALUE: " << H_MIN << endl;
-			cout << "MAX 'H' VALUE: " << H_MAX << endl;
-		}
-		if (S_ROI.size()>0){
-			S_MIN = *std::min_element(S_ROI.begin(), S_ROI.end());
-			S_MAX = *std::max_element(S_ROI.begin(), S_ROI.end());
-			cout << "MIN 'S' VALUE: " << S_MIN << endl;
-			cout << "MAX 'S' VALUE: " << S_MAX << endl;
-		}
-		if (V_ROI.size()>0){
-			V_MIN = *std::min_element(V_ROI.begin(), V_ROI.end());
-			V_MAX = *std::max_element(V_ROI.begin(), V_ROI.end());
-			cout << "MIN 'V' VALUE: " << V_MIN << endl;
-			cout << "MAX 'V' VALUE: " << V_MAX << endl;
-		}
-
-	}
-
-	if (mouseMove == true){
-		//if the mouse is held down, we will draw the click and dragged rectangle to the screen
-		;
-	}
-
-
-}
 
 void GetHSVBoundaries(Mat frame, Scalar& hsv_min, Scalar& hsv_max)
 {
@@ -190,69 +219,72 @@ void GetHSVBoundaries(Mat frame, Scalar& hsv_min, Scalar& hsv_max)
 
 void main()
 {
-	bool debug = false;
-	VideoCapture capture = VideoCapture("../assets/poop0.avi");
-	Mat prev_gray_frame, curr_gray_frame, curr_bgr_frame, curr_hsv_frame, diff_frame, thre_frame;
-	bool running = true;
-	setMouseCallback(MAIN_WINDOW, clickAndDrag_Rectangle, &curr_bgr_frame);
-	capture.read(prev_gray_frame);
-	cvtColor(prev_gray_frame, prev_gray_frame, COLOR_BGR2GRAY);
+	GenericClassnameTracker9000 tracker;
+	tracker.Routine();
 
-	while (running)
-	{
-		capture.read(curr_bgr_frame);
-		if (curr_bgr_frame.empty()) break;
-		cvtColor(curr_bgr_frame, curr_gray_frame, COLOR_BGR2GRAY);
+	//bool debug = false;
+	//VideoCapture capture = VideoCapture("../assets/poop0.avi");
+	//Mat prev_gray_frame, curr_gray_frame, curr_bgr_frame, curr_hsv_frame, diff_frame, thre_frame;
+	//bool running = true;
+	//setMouseCallback(MAIN_WINDOW, clickAndDrag_Rectangle, &curr_bgr_frame);
+	//capture.read(prev_gray_frame);
+	//cvtColor(prev_gray_frame, prev_gray_frame, COLOR_BGR2GRAY);
 
-		absdiff(curr_gray_frame, prev_gray_frame, diff_frame);
-		threshold(diff_frame, thre_frame, SENSITIVITY_VALUE, 255, THRESH_BINARY);
-		//blur(thre_frame, thre_frame, Size(BLUR_SIZE, BLUR_SIZE));
-		//threshold(thre_frame, thre_frame, SENSITIVITY_VALUE, 255, THRESH_BINARY);
+	//while (running)
+	//{
+	//	capture.read(curr_bgr_frame);
+	//	if (curr_bgr_frame.empty()) break;
+	//	cvtColor(curr_bgr_frame, curr_gray_frame, COLOR_BGR2GRAY);
 
-		Mat element = getStructuringElement(MORPH_RECT, Size(BLUR_SIZE, BLUR_SIZE));
-		morphologyEx(thre_frame, thre_frame, MORPH_CLOSE, element);
+	//	absdiff(curr_gray_frame, prev_gray_frame, diff_frame);
+	//	threshold(diff_frame, thre_frame, SENSITIVITY_VALUE, 255, THRESH_BINARY);
+	//	//blur(thre_frame, thre_frame, Size(BLUR_SIZE, BLUR_SIZE));
+	//	//threshold(thre_frame, thre_frame, SENSITIVITY_VALUE, 255, THRESH_BINARY);
 
-		Rect object_bounding_rectangle;
-		Point2d last_position;
-		vector< vector<Point> > contours;
-		vector<Vec4i> hierarchy;
-		
-		findContours(thre_frame, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);// retrieves external contours
-		for (vector<Point> contour : contours)
-		{
-			object_bounding_rectangle = boundingRect(contour);
-			rectangle(curr_bgr_frame, object_bounding_rectangle, Scalar(0, 0, 0));
-			Mat chunk(curr_bgr_frame,object_bounding_rectangle);
-			Scalar hsv_min, hsv_max;
-			GetHSVBoundaries(chunk, hsv_min, hsv_max);
-		}
+	//	Mat element = getStructuringElement(MORPH_RECT, Size(BLUR_SIZE, BLUR_SIZE));
+	//	morphologyEx(thre_frame, thre_frame, MORPH_CLOSE, element);
 
-		imshow(MAIN_WINDOW, curr_bgr_frame);
-		if (debug){
-			imshow(MAIN_WINDOW, diff_frame);
-			waitKey(100);
-			imshow(MAIN_WINDOW, thre_frame);
-			waitKey(100);
-			imshow(MAIN_WINDOW, curr_gray_frame);
-			waitKey(100);
-		}
-		prev_gray_frame = curr_gray_frame.clone();
-		switch (waitKey(200))
-		{
-		case 'd':debug = !debug; break;
-		case 'D':debug = !debug; break;
-		case 27: running = false; break;
-		case 'p': 
-			{
-				bool paused = true;
-				while (paused)
-				{
-					if (waitKey(50) == 'p' || waitKey(50) == 'P') 
-						paused = false; // or paused = waitKey(50) != 'p' && waitKey(50) != 'P';
-				}
-				break;
-			}
-		}
-	}
-	cvDestroyWindow(MAIN_WINDOW);
+	//	Rect object_bounding_rectangle;
+	//	Point2d last_position;
+	//	vector< vector<Point> > contours;
+	//	vector<Vec4i> hierarchy;
+	//	
+	//	findContours(thre_frame, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);// retrieves external contours
+	//	for (vector<Point> contour : contours)
+	//	{
+	//		object_bounding_rectangle = boundingRect(contour);
+	//		rectangle(curr_bgr_frame, object_bounding_rectangle, Scalar(0, 0, 0));
+	//		Mat chunk(curr_bgr_frame,object_bounding_rectangle);
+	//		Scalar hsv_min, hsv_max;
+	//		GetHSVBoundaries(chunk, hsv_min, hsv_max);
+	//	}
+
+	//	imshow(MAIN_WINDOW, curr_bgr_frame);
+	//	if (debug){
+	//		imshow(MAIN_WINDOW, diff_frame);
+	//		waitKey(100);
+	//		imshow(MAIN_WINDOW, thre_frame);
+	//		waitKey(100);
+	//		imshow(MAIN_WINDOW, curr_gray_frame);
+	//		waitKey(100);
+	//	}
+	//	prev_gray_frame = curr_gray_frame.clone();
+	//	switch (waitKey(200))
+	//	{
+	//	case 'd':debug = !debug; break;
+	//	case 'D':debug = !debug; break;
+	//	case 27: running = false; break;
+	//	case 'p': 
+	//		{
+	//			bool paused = true;
+	//			while (paused)
+	//			{
+	//				if (waitKey(50) == 'p' || waitKey(50) == 'P') 
+	//					paused = false; // or paused = waitKey(50) != 'p' && waitKey(50) != 'P';
+	//			}
+	//			break;
+	//		}
+	//	}
+	//}
+	//cvDestroyWindow(MAIN_WINDOW);
 }
