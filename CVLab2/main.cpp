@@ -58,6 +58,7 @@ public:
 			initial_click_point = cv::Point(x, y);
 			//user has begun dragging the mouse
 			mouse_is_dragging = true;
+
 		}
 		if (mouse_is_dragging){
 			switch (event)
@@ -69,6 +70,7 @@ public:
 				current_mouse_point = cv::Point(x, y);
 				//user has moved the mouse while clicking and dragging
 				mouse_is_moving = true;
+				break;
 			}
 			/* user has released left button */
 			case CV_EVENT_LBUTTONUP:
@@ -81,12 +83,9 @@ public:
 				cvtColor(*videoFeed, hsv_feed, CV_BGR2HSV);
 				Mat chunk(hsv_feed, Rect(initial_click_point, current_mouse_point));
 				GetHSVBoundaries(chunk);
+				break;
 			}
 			}
-			Mat image(*videoFeed);
-			rectangle(image, initial_click_point, current_mouse_point, Scalar(0, 0, 0));
-			imshow(MAIN_WINDOW, image);
-			waitKey(50);
 		}
 
 		if (event == CV_EVENT_RBUTTONDOWN){
@@ -105,15 +104,34 @@ public:
 			//user has clicked middle mouse button
 			//enter code here if needed.
 		}
-		cout << "mouse_is_dragging" << mouse_is_dragging << " " << "mouse_is_moving" << mouse_is_moving << " " << "rectangle_selected" << rectangle_selected << " " << "initial_click_point" << initial_click_point.x << " " << initial_click_point.y << " " << "current_mouse_point" << current_mouse_point.x << " " << current_mouse_point.y << " " << endl;
+	}
+
+	void Pause(Mat curr_bgr_frame)
+	{
+		bool paused = true;
+		while (paused)
+		{
+			Mat image = curr_bgr_frame.clone();
+			if (mouse_is_dragging)
+			{
+				rectangle(image, initial_click_point, current_mouse_point, Scalar(0, 0, 0));  //IIIIITS SHIIIT
+			}
+			imshow(MAIN_WINDOW, image);
+			switch (waitKey(50))
+			{
+			case 'p':paused = false; break;
+			case 'P':paused = false; break;
+			case 27: paused = false; break;
+			}
+		}
 	}
 
 	void Routine()
 	{
 		bool debug = false;
+		bool running = true;
 		VideoCapture capture = VideoCapture("../assets/poop0.avi");
 		Mat prev_gray_frame, curr_gray_frame, curr_bgr_frame, curr_hsv_frame, diff_frame, thre_frame;
-		bool running = true;
 		capture.read(curr_bgr_frame);
 		namedWindow(MAIN_WINDOW);
 		setMouseCallback(MAIN_WINDOW, ClickAndDragRectangle, &curr_bgr_frame);
@@ -148,7 +166,11 @@ public:
 				Mat chunk(curr_hsv_frame, object_bounding_rectangle);
 				GetHSVBoundaries(chunk);
 			}
-
+			
+			if (mouse_is_dragging)
+			{
+				rectangle(curr_bgr_frame, initial_click_point, current_mouse_point, Scalar(0, 0, 0));
+			}
 			imshow(MAIN_WINDOW, curr_bgr_frame);
 			if (debug){
 				imshow(MAIN_WINDOW, diff_frame);
@@ -158,26 +180,15 @@ public:
 				imshow(MAIN_WINDOW, curr_gray_frame);
 				waitKey(100);
 			}
+			
 			prev_gray_frame = curr_gray_frame.clone();
 			switch (waitKey(200))
 			{
 			case 'd':debug = !debug; break;
 			case 'D':debug = !debug; break;
 			case 27: running = false; break;
-			case 'p':
-			{
-				bool paused = true;
-				while (paused)
-				{
-					switch (waitKey(50))
-					{
-					case 'p':paused = false; break;
-					case 'P':paused = false; break;
-					case 27: paused = false; running = false; break;
-					}
-				}
-				break;
-			}
+			case 'p': Pause(curr_bgr_frame); break;
+			case 'P': Pause(curr_bgr_frame); break;
 			}
 		}
 		cvDestroyWindow(MAIN_WINDOW);
