@@ -146,8 +146,8 @@ public:
 
 			absdiff(curr_gray_frame, prev_gray_frame, diff_frame);
 			threshold(diff_frame, thre_frame, SENSITIVITY_VALUE, 255, THRESH_BINARY);
-			//blur(thre_frame, thre_frame, Size(BLUR_SIZE, BLUR_SIZE));
-			//threshold(thre_frame, thre_frame, SENSITIVITY_VALUE, 255, THRESH_BINARY);
+			blur(thre_frame, thre_frame, Size(BLUR_SIZE, BLUR_SIZE));
+			threshold(thre_frame, thre_frame, SENSITIVITY_VALUE, 255, THRESH_BINARY);
 
 			Mat element = getStructuringElement(MORPH_RECT, Size(BLUR_SIZE, BLUR_SIZE));
 			morphologyEx(thre_frame, thre_frame, MORPH_CLOSE, element);
@@ -157,16 +157,20 @@ public:
 			vector< vector<Point> > contours;
 			vector<Vec4i> hierarchy;
 
-			findContours(thre_frame, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);// retrieves external contours
+			cvtColor(curr_bgr_frame, curr_hsv_frame, CV_BGR2HSV);
+			findContours(thre_frame, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);  // retrieves external contours
 			for (vector<Point> contour : contours)
 			{
 				object_bounding_rectangle = boundingRect(contour);
-				rectangle(curr_bgr_frame, object_bounding_rectangle, Scalar(0, 0, 0));
-				cvtColor(curr_bgr_frame, curr_hsv_frame, CV_BGR2HSV);
 				Mat chunk(curr_hsv_frame, object_bounding_rectangle);
-				GetHSVBoundaries(chunk);
+				Mat threshold;
+				inRange(chunk, hsv_min, hsv_max, threshold);
+				if (countNonZero(threshold)>0)
+				{
+					rectangle(curr_bgr_frame, object_bounding_rectangle, Scalar(0, 0, 0));
+				}
 			}
-			
+			cout << endl;
 			if (mouse_is_dragging)
 			{
 				rectangle(curr_bgr_frame, initial_click_point, current_mouse_point, Scalar(0, 0, 0));
@@ -232,70 +236,4 @@ void main()
 {
 	GenericClassnameTracker9000 tracker;
 	tracker.Routine();
-
-	//bool debug = false;
-	//VideoCapture capture = VideoCapture("../assets/poop0.avi");
-	//Mat prev_gray_frame, curr_gray_frame, curr_bgr_frame, curr_hsv_frame, diff_frame, thre_frame;
-	//bool running = true;
-	//setMouseCallback(MAIN_WINDOW, clickAndDrag_Rectangle, &curr_bgr_frame);
-	//capture.read(prev_gray_frame);
-	//cvtColor(prev_gray_frame, prev_gray_frame, COLOR_BGR2GRAY);
-
-	//while (running)
-	//{
-	//	capture.read(curr_bgr_frame);
-	//	if (curr_bgr_frame.empty()) break;
-	//	cvtColor(curr_bgr_frame, curr_gray_frame, COLOR_BGR2GRAY);
-
-	//	absdiff(curr_gray_frame, prev_gray_frame, diff_frame);
-	//	threshold(diff_frame, thre_frame, SENSITIVITY_VALUE, 255, THRESH_BINARY);
-	//	//blur(thre_frame, thre_frame, Size(BLUR_SIZE, BLUR_SIZE));
-	//	//threshold(thre_frame, thre_frame, SENSITIVITY_VALUE, 255, THRESH_BINARY);
-
-	//	Mat element = getStructuringElement(MORPH_RECT, Size(BLUR_SIZE, BLUR_SIZE));
-	//	morphologyEx(thre_frame, thre_frame, MORPH_CLOSE, element);
-
-	//	Rect object_bounding_rectangle;
-	//	Point2d last_position;
-	//	vector< vector<Point> > contours;
-	//	vector<Vec4i> hierarchy;
-	//	
-	//	findContours(thre_frame, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);// retrieves external contours
-	//	for (vector<Point> contour : contours)
-	//	{
-	//		object_bounding_rectangle = boundingRect(contour);
-	//		rectangle(curr_bgr_frame, object_bounding_rectangle, Scalar(0, 0, 0));
-	//		Mat chunk(curr_bgr_frame,object_bounding_rectangle);
-	//		Scalar hsv_min, hsv_max;
-	//		GetHSVBoundaries(chunk, hsv_min, hsv_max);
-	//	}
-
-	//	imshow(MAIN_WINDOW, curr_bgr_frame);
-	//	if (debug){
-	//		imshow(MAIN_WINDOW, diff_frame);
-	//		waitKey(100);
-	//		imshow(MAIN_WINDOW, thre_frame);
-	//		waitKey(100);
-	//		imshow(MAIN_WINDOW, curr_gray_frame);
-	//		waitKey(100);
-	//	}
-	//	prev_gray_frame = curr_gray_frame.clone();
-	//	switch (waitKey(200))
-	//	{
-	//	case 'd':debug = !debug; break;
-	//	case 'D':debug = !debug; break;
-	//	case 27: running = false; break;
-	//	case 'p': 
-	//		{
-	//			bool paused = true;
-	//			while (paused)
-	//			{
-	//				if (waitKey(50) == 'p' || waitKey(50) == 'P') 
-	//					paused = false; // or paused = waitKey(50) != 'p' && waitKey(50) != 'P';
-	//			}
-	//			break;
-	//		}
-	//	}
-	//}
-	//cvDestroyWindow(MAIN_WINDOW);
 }
