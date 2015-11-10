@@ -145,6 +145,7 @@ public:
 			cvtColor(curr_bgr_frame, curr_gray_frame, COLOR_BGR2GRAY);
 
 			absdiff(curr_gray_frame, prev_gray_frame, diff_frame);
+			//unusable because detects only edge motion for textureless objects
 			threshold(diff_frame, thre_frame, SENSITIVITY_VALUE, 255, THRESH_BINARY);
 			blur(thre_frame, thre_frame, Size(BLUR_SIZE, BLUR_SIZE));
 			threshold(thre_frame, thre_frame, SENSITIVITY_VALUE, 255, THRESH_BINARY);
