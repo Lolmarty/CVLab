@@ -16,9 +16,17 @@ using namespace std;
 #define MAIN_WINDOW "poots"
 #define SENSITIVITY_VALUE 20
 #define BLUR_SIZE 20
+#define FRAME_CAP 20
+#define MOG_HISTORY 50
+#define MIXTURES 7
+#define BACKGROUND_RATIO 0.5
+#define NOISE_SIGMA 0.05
+#define LEARNING_RATE 0.01
 
 class GenericClassnameTracker9000
 {
+	VideoCapture capture;
+	BackgroundSubtractor* substractor;
 	static bool mouse_is_dragging;
 	static bool mouse_is_moving;
 	static bool rectangle_selected;
@@ -26,8 +34,24 @@ class GenericClassnameTracker9000
 public:
 	static Scalar hsv_min;
 	static Scalar hsv_max;
-	GenericClassnameTracker9000(){}
+	GenericClassnameTracker9000(string filename)
+	{
+		capture = VideoCapture(filename);
+
+	}
 	~GenericClassnameTracker9000(){}
+
+	void Prelearn()
+	{
+		Mat frame;
+		substractor = new BackgroundSubtractorMOG(MOG_HISTORY, MIXTURES, BACKGROUND_RATIO, NOISE_SIGMA);
+		for (int frame_no = 0; frame_no < FRAME_CAP; frame_no++)
+		{
+			capture.read(frame);
+			if (frame.empty()) throw exception("not enough frames");
+			substractor->operator()(frame, frame,LEARNING_RATE);
+		}
+	}
 
 	static void GetHSVBoundaries(Mat frame)
 	{
@@ -128,9 +152,9 @@ public:
 
 	void Routine()
 	{
+		Prelearn();
 		bool debug = false;
 		bool running = true;
-		VideoCapture capture = VideoCapture("../assets/poop0.avi");
 		Mat prev_gray_frame, curr_gray_frame, curr_bgr_frame, curr_hsv_frame, diff_frame, thre_frame;
 		capture.read(curr_bgr_frame);
 		namedWindow(MAIN_WINDOW);
@@ -144,7 +168,8 @@ public:
 			if (curr_bgr_frame.empty()) break;
 			cvtColor(curr_bgr_frame, curr_gray_frame, COLOR_BGR2GRAY);
 
-			absdiff(curr_gray_frame, prev_gray_frame, diff_frame);
+			substractor->operator()(curr_bgr_frame, diff_frame);
+			//absdiff(curr_gray_frame, prev_gray_frame, diff_frame);
 			//unusable because detects only edge motion for textureless objects
 			threshold(diff_frame, thre_frame, SENSITIVITY_VALUE, 255, THRESH_BINARY);
 			blur(thre_frame, thre_frame, Size(BLUR_SIZE, BLUR_SIZE));
@@ -235,6 +260,6 @@ void GetHSVBoundaries(Mat frame, Scalar& hsv_min, Scalar& hsv_max)
 
 void main()
 {
-	GenericClassnameTracker9000 tracker;
+	GenericClassnameTracker9000 tracker("../assets/poop0.avi");
 	tracker.Routine();
 }
