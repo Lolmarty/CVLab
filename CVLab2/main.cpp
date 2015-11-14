@@ -14,14 +14,18 @@ using namespace cv;
 using namespace std;
 
 #define MAIN_WINDOW "poots"
+#define DIFF_WINDOW "diff"
+#define THRE_WINDOW "thre"
+
+
 #define SENSITIVITY_VALUE 20
 #define BLUR_SIZE 20
 #define FRAME_CAP 20
 #define MOG_HISTORY 50
-#define MIXTURES 7
-#define BACKGROUND_RATIO 0.5
+#define MIXTURES 3
+#define BACKGROUND_RATIO 0.8
 #define NOISE_SIGMA 0.05
-#define LEARNING_RATE 0.01
+#define LEARNING_RATE 0.1
 
 class GenericClassnameTracker9000
 {
@@ -31,6 +35,12 @@ class GenericClassnameTracker9000
 	static bool mouse_is_moving;
 	static bool rectangle_selected;
 	static Point initial_click_point, current_mouse_point;
+
+	//routine runtime parameters
+	Mat curr_bgr_frame;
+	bool debug = true;
+	bool running = true;
+	bool paused = true;
 public:
 	static Scalar hsv_min;
 	static Scalar hsv_max;
@@ -130,98 +140,95 @@ public:
 		}
 	}
 
-	void Pause(Mat curr_bgr_frame)
+	void TrackingRoutine()
 	{
-		bool paused = true;
-		while (paused)
+		capture.read(curr_bgr_frame);
+		if (curr_bgr_frame.empty())
 		{
-			Mat image = curr_bgr_frame.clone();
-			if (mouse_is_dragging)
-			{
-				rectangle(image, initial_click_point, current_mouse_point, Scalar(0, 0, 0));  //IIIIITS SHIIIT
-			}
-			imshow(MAIN_WINDOW, image);
-			switch (waitKey(50))
-			{
-			case 'p':paused = false; break;
-			case 'P':paused = false; break;
-			case 27: paused = false; break;
-			}
+			running = false;
+			return; // I DON'T LIKE IT
 		}
+		Mat curr_hsv_frame, diff_frame, thre_frame;
+		cvtColor(curr_bgr_frame, curr_hsv_frame, CV_BGR2HSV);
+
+		substractor->operator()(curr_bgr_frame, diff_frame);
+		inRange(curr_hsv_frame, hsv_min, hsv_max, thre_frame);
+		bitwise_and(diff_frame, thre_frame, diff_frame);
+
+
+		threshold(diff_frame, thre_frame, SENSITIVITY_VALUE, 255, THRESH_BINARY);
+		Mat element = getStructuringElement(MORPH_RECT, Size(BLUR_SIZE, BLUR_SIZE));
+		morphologyEx(thre_frame, thre_frame, MORPH_CLOSE, element);
+		blur(thre_frame, thre_frame, Size(BLUR_SIZE, BLUR_SIZE));
+		threshold(thre_frame, thre_frame, SENSITIVITY_VALUE, 255, THRESH_BINARY);
+
+		Rect object_bounding_rectangle;
+		Point2d last_position;
+		vector< vector<Point> > contours;
+		vector<Vec4i> hierarchy;
+
+		findContours(thre_frame, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);  // retrieves external contours
+		for (vector<Point> contour : contours)
+		{
+			object_bounding_rectangle = boundingRect(contour);
+			rectangle(curr_bgr_frame, object_bounding_rectangle, Scalar(0, 0, 0));
+		}
+
+		if (mouse_is_dragging)
+		{
+			rectangle(curr_bgr_frame, initial_click_point, current_mouse_point, Scalar(0, 0, 0));
+		}
+		imshow(MAIN_WINDOW, curr_bgr_frame);
+		if (debug)
+		{
+			imshow(DIFF_WINDOW, diff_frame);
+			imshow(THRE_WINDOW, thre_frame);
+		}
+		else
+		{
+			cvDestroyWindow(DIFF_WINDOW);
+			cvDestroyWindow(THRE_WINDOW);
+		}
+	}
+
+	void Pause()
+	{
+		Mat image = curr_bgr_frame.clone();
+		if (mouse_is_dragging)
+		{
+			rectangle(image, initial_click_point, current_mouse_point, Scalar(0, 0, 0));
+		}
+		imshow(MAIN_WINDOW, image);
 	}
 
 	void Routine()
 	{
 		Prelearn();
-		bool debug = false;
-		bool running = true;
-		Mat prev_gray_frame, curr_gray_frame, curr_bgr_frame, curr_hsv_frame, diff_frame, thre_frame;
 		capture.read(curr_bgr_frame);
 		namedWindow(MAIN_WINDOW);
 		setMouseCallback(MAIN_WINDOW, ClickAndDragRectangle, &curr_bgr_frame);
-		capture.read(prev_gray_frame);
-		cvtColor(prev_gray_frame, prev_gray_frame, COLOR_BGR2GRAY);
 
 		while (running)
 		{
-			capture.read(curr_bgr_frame);
-			if (curr_bgr_frame.empty()) break;
-			cvtColor(curr_bgr_frame, curr_gray_frame, COLOR_BGR2GRAY);
-
-			substractor->operator()(curr_bgr_frame, diff_frame);
-			//absdiff(curr_gray_frame, prev_gray_frame, diff_frame);
-			//unusable because detects only edge motion for textureless objects
-			threshold(diff_frame, thre_frame, SENSITIVITY_VALUE, 255, THRESH_BINARY);
-			blur(thre_frame, thre_frame, Size(BLUR_SIZE, BLUR_SIZE));
-			threshold(thre_frame, thre_frame, SENSITIVITY_VALUE, 255, THRESH_BINARY);
-
-			Mat element = getStructuringElement(MORPH_RECT, Size(BLUR_SIZE, BLUR_SIZE));
-			morphologyEx(thre_frame, thre_frame, MORPH_CLOSE, element);
-
-			Rect object_bounding_rectangle;
-			Point2d last_position;
-			vector< vector<Point> > contours;
-			vector<Vec4i> hierarchy;
-
-			cvtColor(curr_bgr_frame, curr_hsv_frame, CV_BGR2HSV);
-			findContours(thre_frame, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);  // retrieves external contours
-			for (vector<Point> contour : contours)
-			{
-				object_bounding_rectangle = boundingRect(contour);
-				Mat chunk(curr_hsv_frame, object_bounding_rectangle);
-				Mat threshold;
-				inRange(chunk, hsv_min, hsv_max, threshold);
-				if (countNonZero(threshold)>0)
-				{
-					rectangle(curr_bgr_frame, object_bounding_rectangle, Scalar(0, 0, 0));
-				}
-			}
-			cout << endl;
-			if (mouse_is_dragging)
-			{
-				rectangle(curr_bgr_frame, initial_click_point, current_mouse_point, Scalar(0, 0, 0));
-			}
-			imshow(MAIN_WINDOW, curr_bgr_frame);
-			if (debug){
-				imshow(MAIN_WINDOW, diff_frame);
-				waitKey(100);
-				imshow(MAIN_WINDOW, thre_frame);
-				waitKey(100);
-				imshow(MAIN_WINDOW, curr_gray_frame);
-				waitKey(100);
-			}
+			if (!paused) TrackingRoutine();
+			else Pause();
 			
-			prev_gray_frame = curr_gray_frame.clone();
-			switch (waitKey(200))
+			switch (waitKey(50))
 			{
 			case 'd':debug = !debug; break;
 			case 'D':debug = !debug; break;
 			case 27: running = false; break;
-			case 'p': Pause(curr_bgr_frame); break;
-			case 'P': Pause(curr_bgr_frame); break;
+			case 'p':paused = !paused; break;
+			case 'P':paused = !paused; break;
+			case ' ':paused = !paused; break;
 			}
 		}
 		cvDestroyWindow(MAIN_WINDOW);
+		if (debug)
+		{
+			cvDestroyWindow(DIFF_WINDOW);
+			cvDestroyWindow(THRE_WINDOW);
+		}
 	}
 };
 
