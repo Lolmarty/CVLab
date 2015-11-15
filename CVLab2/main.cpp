@@ -1,5 +1,5 @@
 #include <iostream>
-
+#include <fstream>
 
 #include "opencv2/core/core.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
@@ -10,8 +10,12 @@
 #include "opencv2/highgui/highgui_c.h"
 #include "opencv2/imgproc/imgproc_c.h"
 #include <opencv2/video/background_segm.hpp>
+
+#include "OptionParser.h"
 using namespace cv;
 using namespace std;
+using namespace optparse;
+
 
 #define MAIN_WINDOW "poots"
 #define DIFF_WINDOW "diff"
@@ -30,6 +34,7 @@ using namespace std;
 class GenericClassnameTracker9000
 {
 	VideoCapture capture;
+	ofstream logger;
 	BackgroundSubtractor* substractor;
 	static bool mouse_is_dragging;
 	static bool mouse_is_moving;
@@ -38,18 +43,24 @@ class GenericClassnameTracker9000
 
 	//routine runtime parameters
 	Mat curr_bgr_frame;
-	bool debug = true;
+	bool debug;
 	bool running = true;
-	bool paused = true;
+	bool paused = false;
 public:
 	static Scalar hsv_min;
 	static Scalar hsv_max;
-	GenericClassnameTracker9000(string filename)
+	GenericClassnameTracker9000(string filename, string log_name, bool extern_debug)
 	{
+		debug = extern_debug;
 		capture = VideoCapture(filename);
-
+		logger.open(log_name);
+		logger << filename << endl;
 	}
-	~GenericClassnameTracker9000(){}
+
+	~GenericClassnameTracker9000()
+	{
+		logger.close();
+	}
 
 	void Prelearn()
 	{
@@ -140,6 +151,15 @@ public:
 		}
 	}
 
+	void WritePosition(int X, int Y)
+	{
+		if (logger.is_open())
+		{
+			logger << X << " " << Y << endl;
+		}
+		else throw exception("well shit");
+	}
+
 	void TrackingRoutine()
 	{
 		capture.read(curr_bgr_frame);
@@ -168,30 +188,38 @@ public:
 		vector<Vec4i> hierarchy;
 
 		findContours(thre_frame, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);  // retrieves external contours
-		for (vector<Point> contour : contours)
+		/*for (vector<Point> contour : contours)
 		{
 			object_bounding_rectangle = boundingRect(contour);
 			rectangle(curr_bgr_frame, object_bounding_rectangle, Scalar(0, 0, 0));
-		}
+		}*/
+		object_bounding_rectangle = boundingRect(contours.back());
+		rectangle(curr_bgr_frame, object_bounding_rectangle, Scalar(0, 0, 0));
+		int x_pos = object_bounding_rectangle.x + object_bounding_rectangle.width / 2;
+		int y_pos = object_bounding_rectangle.y + object_bounding_rectangle.height / 2;
 
 		if (mouse_is_dragging)
 		{
 			rectangle(curr_bgr_frame, initial_click_point, current_mouse_point, Scalar(0, 0, 0));
 		}
-		imshow(MAIN_WINDOW, curr_bgr_frame);
 		if (debug)
 		{
 			imshow(DIFF_WINDOW, diff_frame);
 			imshow(THRE_WINDOW, thre_frame);
+			char* text = new char[10];
+			sprintf(text, "x:%d x:%d", x_pos, y_pos);
+			putText(curr_bgr_frame, text, object_bounding_rectangle.tl(), FONT_HERSHEY_PLAIN, 1, Scalar(0, 0, 0));
 		}
 		else
 		{
 			cvDestroyWindow(DIFF_WINDOW);
 			cvDestroyWindow(THRE_WINDOW);
 		}
+		imshow(MAIN_WINDOW, curr_bgr_frame);
+		WritePosition(x_pos, y_pos);
 	}
 
-	void Pause()
+	void PauseRoutine()
 	{
 		Mat image = curr_bgr_frame.clone();
 		if (mouse_is_dragging)
@@ -211,9 +239,9 @@ public:
 		while (running)
 		{
 			if (!paused) TrackingRoutine();
-			else Pause();
+			else PauseRoutine();
 			
-			switch (waitKey(50))
+			switch (waitKey(10))
 			{
 			case 'd':debug = !debug; break;
 			case 'D':debug = !debug; break;
@@ -265,8 +293,15 @@ void GetHSVBoundaries(Mat frame, Scalar& hsv_min, Scalar& hsv_max)
 	}
 }
 
-void main()
+void main(int argc, char* argv[])
 {
-	GenericClassnameTracker9000 tracker("../assets/poop0.avi");
+	OptionParser optparse = OptionParser();
+	optparse.add_option("--infile").help("select source for tracking");
+	optparse.add_option("--outlog").help("select file for output");
+	optparse.add_option("--debug").action("store_true").help("show debug windows");
+
+
+	Values& options = optparse.parse_args(argc, argv);
+	GenericClassnameTracker9000 tracker(options["infile"], options["outlog"], options.is_set("debug"));
 	tracker.Routine();
 }
