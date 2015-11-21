@@ -12,9 +12,11 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Definitions.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="OptionParser.cpp" />
     <ClCompile Include="test.cpp" />
+    <ClCompile Include="VideoSources.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

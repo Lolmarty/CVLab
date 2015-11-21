@@ -16,86 +16,12 @@
 #include <opencv2/video/background_segm.hpp>
 
 #include "OptionParser.h"
+#include "VideoSources.cpp"
 
 using namespace std;
 using namespace cv;
 using namespace optparse;
 
-#define MAIN_WINDOW_NAME "poots"
-#define FRAMES_PER_SECOND 15
-#define MAX_VELOCITY 20
-#define VELOCITY 10
-#define STEP_X 10
-#define STEP_Y 10
-#define STEP_V 5
-#define STEP_A 5
-#define SPRITE_BG_WIDTH 5
-#define SPRITE_BG_HEIGHT 5
-#define SPRITE_ITERATIONS 1
-
-enum VideoSourceMode
-{
-	ImageMode,
-	VideoMode,
-	CamMode,
-};
-
-class VideoSourceWrapper
-{
-private:
-	Mat image;
-	VideoCapture video_capture;
-	VideoSourceMode mode;
-
-public:
-	VideoSourceWrapper(){}
-	
-	VideoSourceWrapper(Mat extern_image)
-	{
-		image = extern_image;
-		mode = ImageMode;
-	}
-
-	VideoSourceWrapper(VideoCapture extern_capture)
-	{
-		video_capture = extern_capture;
-		mode = VideoMode;
-	}
-
-	Mat GetNextFrame()
-	{
-		Mat frame;
-		switch (mode)
-		{
-		case ImageMode: frame = image.clone(); 
-						break;
-		case VideoMode: if (!video_capture.isOpened())
-						throw exception("well shit");
-						video_capture >> frame;
-						break;
-		}
-		return frame;
-	}
-
-	int GetEncoding() // quite potentially useless
-	{
-		video_capture.get(CV_CAP_PROP_FOURCC);
-		switch (mode)
-		{
-		case ImageMode: return CV_FOURCC('M', 'S', 'V', 'C');
-		case VideoMode: return video_capture.get(CV_CAP_PROP_FOURCC);
-		}
-	}
-
-	~VideoSourceWrapper()
-	{
-		switch (mode)
-		{
-		case ImageMode: break;
-		case VideoMode: video_capture.release(); break;
-		}
-	}
-};
 
 class GenericClassnameOneGenerator9000
 {
@@ -184,22 +110,6 @@ public:
 		return image;
 	}
 
-	static Mat Rotate(Mat image, double angle)
-	{
-		// get rotation matrix for rotating the image around its center
-		Point2f center(image.cols / 2.0, image.rows / 2.0);
-		Mat rot = getRotationMatrix2D(center, angle, 1.0);
-		// determine bounding rectangle
-		Rect bbox = RotatedRect(center, image.size(), angle).boundingRect();
-		// adjust transformation matrix
-		rot.at<double>(0, 2) += bbox.width / 2.0 - center.x;
-		rot.at<double>(1, 2) += bbox.height / 2.0 - center.y;
-
-		Mat result;
-		warpAffine(image, result, rot, bbox.size());
-		return result;
-	}
-
 	void Routine2()
 	{
 		Mat current_frame = wrapper.GetNextFrame();
@@ -285,7 +195,7 @@ int main(int argc, char* argv[])
 {
 	map<const string, VideoSourceMode> bgtype_map;
 	map_init(bgtype_map)
-		("img", ImageMode)
+		("img", StaticImageMode)
 		("vid", VideoMode)
 		("cam", CamMode)
 		;
@@ -305,11 +215,13 @@ int main(int argc, char* argv[])
 
 	Values& options = optparse.parse_args(argc, argv);
 
+	DynamicImageVideo poop(imread(options["bgfile"]));
+
 	VideoSourceWrapper wrapper;
 	switch (bgtype_map.at(options["bgtype"]))
 	{
 	case VideoMode:wrapper = VideoSourceWrapper(VideoCapture(options["bgfile"])); break;
-	case ImageMode:wrapper = VideoSourceWrapper(imread(options["bgfile"])); break;
+	case StaticImageMode:wrapper = VideoSourceWrapper(imread(options["bgfile"])); break;
 	case CamMode:wrapper = VideoSourceWrapper(VideoCapture(0)); break;
 	}
 
