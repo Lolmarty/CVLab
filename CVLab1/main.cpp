@@ -195,7 +195,7 @@ int main(int argc, char* argv[])
 {
 	map<const string, VideoSourceMode> bgtype_map;
 	map_init(bgtype_map)
-		("img", StaticImageMode)
+		("img", ImageMode)
 		("vid", VideoMode)
 		("cam", CamMode)
 		;
@@ -207,6 +207,7 @@ int main(int argc, char* argv[])
 	OptionParser optparse = OptionParser();
 	optparse.add_option("--bgtype").choices(bgtype.begin(), bgtype.end()).help("select the type for background");
 	optparse.add_option("--bgfile").help("select source for background");
+	optparse.add_option("--bgdyn").action("store_false").help("IMAGE BACKGROUND ONLY created a smaller randomly moving background");
 	optparse.add_option("--spfile").help("select source for sprite");
 	optparse.add_option("--outvideo").help("select file for video output");
 	optparse.add_option("--outlog").help("select file for log output");
@@ -215,13 +216,12 @@ int main(int argc, char* argv[])
 
 	Values& options = optparse.parse_args(argc, argv);
 
-	DynamicImageVideo poop(imread(options["bgfile"]));
 
 	VideoSourceWrapper wrapper;
 	switch (bgtype_map.at(options["bgtype"]))
 	{
 	case VideoMode:wrapper = VideoSourceWrapper(VideoCapture(options["bgfile"])); break;
-	case StaticImageMode:wrapper = VideoSourceWrapper(imread(options["bgfile"])); break;
+	case ImageMode:wrapper = VideoSourceWrapper(imread(options["bgfile"]), options.is_set("bgdyn")); break;
 	case CamMode:wrapper = VideoSourceWrapper(VideoCapture(0)); break;
 	}
 

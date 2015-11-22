@@ -31,7 +31,7 @@ using namespace optparse;
 #define NOISE_SIGMA 0.05
 #define LEARNING_RATE 0.1
 
-class GenericClassnameTracker9000
+class GenericClassnameOneTracker9000
 {
 	VideoCapture capture;
 	ofstream logger;
@@ -49,7 +49,7 @@ class GenericClassnameTracker9000
 public:
 	static Scalar hsv_min;
 	static Scalar hsv_max;
-	GenericClassnameTracker9000(string filename, string log_name, bool extern_debug)
+	GenericClassnameOneTracker9000(string filename, string log_name, bool extern_debug)
 	{
 		debug = extern_debug;
 		capture = VideoCapture(filename);
@@ -57,7 +57,7 @@ public:
 		logger << filename << endl;
 	}
 
-	~GenericClassnameTracker9000()
+	~GenericClassnameOneTracker9000()
 	{
 		logger.close();
 	}
@@ -260,13 +260,13 @@ public:
 	}
 };
 
-bool GenericClassnameTracker9000::mouse_is_dragging = false;
-bool GenericClassnameTracker9000::mouse_is_moving = false;
-bool GenericClassnameTracker9000::rectangle_selected = false;
-Point GenericClassnameTracker9000::initial_click_point = Point();
-Point GenericClassnameTracker9000::current_mouse_point = Point();
-Scalar GenericClassnameTracker9000::hsv_min = Scalar(0, 0, 0);
-Scalar GenericClassnameTracker9000::hsv_max = Scalar(255, 255, 255);
+bool GenericClassnameOneTracker9000::mouse_is_dragging = false;
+bool GenericClassnameOneTracker9000::mouse_is_moving = false;
+bool GenericClassnameOneTracker9000::rectangle_selected = false;
+Point GenericClassnameOneTracker9000::initial_click_point = Point();
+Point GenericClassnameOneTracker9000::current_mouse_point = Point();
+Scalar GenericClassnameOneTracker9000::hsv_min = Scalar(0, 0, 0);
+Scalar GenericClassnameOneTracker9000::hsv_max = Scalar(255, 255, 255);
 //gee this is stupid
 
 
@@ -302,6 +302,6 @@ void main(int argc, char* argv[])
 
 
 	Values& options = optparse.parse_args(argc, argv);
-	GenericClassnameTracker9000 tracker(options["infile"], options["outlog"], options.is_set("debug"));
+	GenericClassnameOneTracker9000 tracker(options["infile"], options["outlog"], options.is_set("debug"));
 	tracker.Routine();
 }
