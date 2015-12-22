@@ -46,7 +46,7 @@ struct Trajectory
 	double a; // angle
 };
 
-int main(int argc, char **argv)
+int m1ain(int argc, char **argv)
 {
 	if (argc < 2) {
 		cout << "./VideoStab [video.avi]" << endl;

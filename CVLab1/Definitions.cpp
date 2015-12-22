@@ -1,4 +1,5 @@
 #define MAIN_WINDOW_NAME "poots"
+#define MAP_WINDOW_NAME "map"
 #define FRAMES_PER_SECOND 15
 #define MAX_VELOCITY 20
 #define VELOCITY 10
@@ -9,3 +10,5 @@
 #define SPRITE_BG_WIDTH 5
 #define SPRITE_BG_HEIGHT 5
 #define SPRITE_ITERATIONS 1
+#define BORDER_ANGLE_DELTA 2
+#define BORDER_NEARING_ZONE_RATIO 0.7

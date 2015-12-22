@@ -4,6 +4,7 @@
 #include <chrono>
 #include <random>
 #include <math.h>
+#include <thread>
 
 #include "opencv2/core/core.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
@@ -228,4 +229,26 @@ int main(int argc, char* argv[])
 	GenericClassnameOneGenerator9000 gc(wrapper, options["outvideo"], options["outlog"], options["spfile"], options.is_set("debug"));
 	gc.Routine2();
 	return 0;
+}
+
+int m1ain()
+{
+	double angle = 0;
+	double delta = 13.24;
+	while (true)
+	{
+		angle += delta;
+
+		cout << angle << endl;
+		while (angle / 360 > 1)
+		{
+			angle -= 360;
+			cout << angle << endl;
+		}
+		if (angle<0)
+		{
+			angle += 360;
+		}
+		this_thread::sleep_for(chrono::milliseconds(200));
+	}
 }

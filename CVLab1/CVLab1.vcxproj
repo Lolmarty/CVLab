@@ -17,6 +17,8 @@
     <ClCompile Include="OptionParser.cpp" />
     <ClCompile Include="test.cpp" />
     <ClCompile Include="VideoSources.cpp" />
+    <ClCompile Include="videostab.cpp" />
+    <ClCompile Include="videostabKalman.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

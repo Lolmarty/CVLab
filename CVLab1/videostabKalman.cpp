@@ -1,11 +1,3 @@
-/*
-Thanks Nghia Ho for his excellent code.
-And,I modified the smooth step using a simple kalman filter .
-So,It can processes live video streaming.
-modified by chen jia.
-email:chenjia2013@foxmail.com
-*/
-
 #include <opencv2/opencv.hpp>
 #include <iostream>
 #include <cassert>
@@ -77,7 +69,7 @@ struct Trajectory
 	double a; // angle
 };
 //
-int main(int argc, char **argv)
+int ma1in(int argc, char **argv)
 {
 	if (argc < 2) {
 		cout << "./VideoStab [video.avi]" << endl;

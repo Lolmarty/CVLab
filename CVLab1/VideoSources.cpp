@@ -1,6 +1,7 @@
 #include <math.h>
 #include <chrono>
 #include <random>
+#include <iostream>
 
 #include "opencv2/core/core.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
@@ -25,53 +26,6 @@ enum VideoSourceMode
 	CamMode,
 };
 
-//class VideoSourceWrapper
-//{
-//private:
-//	Mat image;
-//	VideoCapture video_capture;
-//	VideoSourceMode mode;
-//
-//public:
-//	VideoSourceWrapper(){}
-//
-//	VideoSourceWrapper(Mat extern_image, bool dynamic = false)
-//	{
-//		image = extern_image;
-//		mode = ImageMode;
-//	}
-//
-//	VideoSourceWrapper(VideoCapture extern_capture)
-//	{
-//		video_capture = extern_capture;
-//		mode = VideoMode;
-//	}
-//
-//	Mat GetNextFrame()
-//	{
-//		Mat frame;
-//		switch (mode)
-//		{
-//		case ImageMode: frame = image.clone();
-//			break;
-//		case VideoMode: if (!video_capture.isOpened())
-//			throw exception("well shit");
-//			video_capture >> frame;
-//			break;
-//		}
-//		return frame;
-//	}
-//	
-//	~VideoSourceWrapper()
-//	{
-//		switch (mode)
-//		{
-//		case ImageMode: break;
-//		case VideoMode: video_capture.release(); break;
-//		}
-//	}
-//};
-
 static Mat Rotate(Mat image, double angle)
 {
 	// get rotation matrix for rotating the image around its center
@@ -91,7 +45,7 @@ static Mat Rotate(Mat image, double angle)
 class VideoInterface
 {
 public:
-	 Mat GetNextFrame();
+	Mat GetNextFrame();
 };
 
 class StaticImageVideo : VideoInterface
@@ -125,6 +79,151 @@ class DynamicImageVideo :VideoInterface
 	int center_x, center_y;
 	double angle, velocity;
 	int sign_a, sign_v;
+
+	void ChangeAngle()
+	{
+		int da = gen() % STEP_A;
+		if (90 > angle && angle >= 0)
+		{
+			if (center_y >= center_domain.height + center_domain.y && center_x >= center_domain.width + center_domain.x)
+			{
+				angle += STEP_A * (angle > 45 ? 1 : -1);
+				sign_a = (angle > 45 ? 1 : -1);
+			}
+			else
+			{
+				if (center_y >= center_domain.height + center_domain.y)
+				{
+					angle -= STEP_A; 
+					sign_a = -1;
+				}
+				if (center_x >= center_domain.width + center_domain.x)
+				{
+					angle += STEP_A;
+					sign_a = 1;
+				}
+				else
+				{
+					angle += sign_a*da;
+				}
+			}
+		}
+		if (180 > angle && angle >= 90)
+		{
+			if (center_y >= center_domain.height + center_domain.y && center_x <= center_domain.x)
+			{
+				angle += STEP_A * (angle > 135 ? 1 : -1);
+				sign_a = (angle > 135 ? 1 : -1);
+			}
+			else
+			{
+				if (center_y >= center_domain.height + center_domain.y)
+				{
+					angle += STEP_A;
+					sign_a = 1;
+				}
+				if (center_x <= center_domain.x)
+				{
+					angle -= STEP_A;
+					sign_a = -1;
+				}
+				else
+				{
+					angle += sign_a*da;
+				}
+			}
+		}
+		if (270 > angle && angle >= 180)
+		{
+			if (center_x <= center_domain.x && center_y <= center_domain.y)
+			{
+				angle += STEP_A * (angle > 225 ? 1 : -1);
+				sign_a = (angle > 225 ? 1 : -1);
+			}
+			else
+			{
+				if (center_x <= center_domain.x)
+				{
+					angle += STEP_A;
+					sign_a = 1;
+				}
+				if (center_y <= center_domain.y)
+				{
+					angle -= STEP_A;
+					sign_a = -1;
+				}
+				else
+				{
+					angle += sign_a*da;
+				}
+			}
+		}
+		if (360 > angle && angle >= 270)
+		{
+			if (center_y <= center_domain.y && center_x >= center_domain.width + center_domain.x)
+			{
+				angle += STEP_A * (angle > 315 ? 1 : -1);
+				sign_a = (angle > 315 ? 1 : -1);
+			}
+			else
+			{
+				if (center_y <= center_domain.y)
+				{
+					angle += STEP_A;
+					sign_a = 1;
+				}
+				if (center_x >= center_domain.width + center_domain.x)
+				{
+					angle -= STEP_A;
+					sign_a = -1;
+				}
+				else
+				{
+					angle += sign_a*da;
+				}
+			}
+		}
+
+		while (angle / 360 > 1)
+		{
+			angle -= 360;
+		}
+		if (angle < 0)
+		{
+			angle += 360;
+		}
+	}
+
+	void RefreshCoordinates()
+	{
+		if (center_y >= center_domain.height + center_domain.y
+			|| center_x <= center_domain.x
+			|| center_y <= center_domain.y
+			|| center_x >= center_domain.width + center_domain.x) velocity = VELOCITY * BORDER_NEARING_ZONE_RATIO;
+		else velocity = VELOCITY;
+		ChangeAngle();
+
+
+		int dx = (int)(velocity*cos(CV_PI*angle / 180));
+		int dy = (int)(velocity*sin(CV_PI*angle / 180));
+		center_y += dy;
+		center_x += dx;
+	}
+
+	void ShowMap()
+	{
+		Mat temp = image.clone();
+		rectangle(temp, center_domain, Scalar(0, 0, 0));
+		arrowedLine(temp,
+			Point(center_x, center_y),
+			Point(center_x + (int)(velocity*cos(CV_PI*angle / 180)),
+			center_y + (int)(velocity*sin(CV_PI*angle / 180))),
+			Scalar(0, 0, 0));
+		string info = format("%f", angle);
+		putText(temp, info, Point(0, temp.rows), CV_FONT_HERSHEY_PLAIN, 10, Scalar(0, 0, 0));
+		imshow(MAP_WINDOW_NAME, temp);
+	}
+
 public:
 	DynamicImageVideo(){}
 
@@ -142,50 +241,30 @@ public:
 		sign_a = (gen() % 2) ? -1 : 1;
 		center_x = gen() % center_domain.width + center_domain.x;
 		center_y = gen() % center_domain.height + center_domain.y;
-		
+
 		//Debug stuff
-		Mat temp = image.clone();
-		rectangle(temp, center_domain, Scalar(0, 0, 0));
-		arrowedLine(temp, 
-			Point(center_x, center_y), 
-			Point(center_x + (int)(velocity*cos(CV_PI*angle / 180)), 
-				center_y + (int)(velocity*sin(CV_PI*angle / 180))), 
-			Scalar(0, 0, 0));
-		imshow(MAIN_WINDOW_NAME, temp);
-		waitKey();
+	//	ShowMap();
+	//	waitKey();
 	}
 
 	Mat GetNextFrame()
 	{
-		double dv = gen() % STEP_V;
-		double da = gen() % STEP_A;
-		if (velocity + sign_v*dv <= 0 || velocity + sign_v*dv >= MAX_VELOCITY) sign_v *= -1;
-		velocity += sign_v*dv;
-		angle += sign_a*da;
-		int dx = (int)(velocity*cos(CV_PI*angle / 180));
-		int dy = (int)(velocity*sin(CV_PI*angle / 180));
-		if (center_y + dy <= center_domain.y || center_y + dy >= center_domain.height + center_domain.y) angle *= -1;
-		if (center_x + dx <= center_domain.x || center_x + dx >= center_domain.width + center_domain.x) angle = 180 - angle;
-		dx = (int)(velocity*cos(CV_PI*angle / 180));
-		dy = (int)(velocity*sin(CV_PI*angle / 180));
-		center_y += dy;
-		center_x += dx;
+		RefreshCoordinates();
 
 		Mat M, rotated, cropped;
 		Size rect_size = Size(frame_side, frame_side);
-		// thanks to http://felix.abecassis.me/2011/10/opencv-rotation-deskewing/
-		if (angle < -45.) {
-			angle += 90.0;
-			swap(rect_size.width, rect_size.height);
-		}
+
 		// get the rotation matrix
 		M = getRotationMatrix2D(Point2f(center_x, center_y), angle, 1.0);
 		// perform the affine transformation
 		warpAffine(image, rotated, M, image.size(), INTER_CUBIC);
 		// crop the resulting image
 		getRectSubPix(rotated, rect_size, Point2f(center_x, center_y), cropped);
+		ShowMap();
 		return cropped.clone();
 	}
+
+
 
 	~DynamicImageVideo()
 	{
