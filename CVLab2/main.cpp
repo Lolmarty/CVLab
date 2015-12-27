@@ -15,6 +15,7 @@
 using namespace cv;
 using namespace std;
 using namespace optparse;
+#define HORIZONTAL_BORDER_CROP 20
 
 
 #define MAIN_WINDOW "poots"
@@ -22,7 +23,7 @@ using namespace optparse;
 #define THRE_WINDOW "thre"
 
 
-#define SENSITIVITY_VALUE 20
+#define SENSITIVITY_VALUE 15
 #define BLUR_SIZE 20
 #define FRAME_CAP 20
 #define MOG_HISTORY 50
@@ -42,7 +43,9 @@ class GenericClassnameOneTracker9000
 	static Point initial_click_point, current_mouse_point;
 
 	//routine runtime parameters
-	Mat curr_bgr_frame;
+	Mat current_transform, previous_transform;
+	int vert_border;
+	Mat curr_bgr_frame, curr_gray,prev_gray;
 	bool debug;
 	bool running = true;
 	bool paused = false;
@@ -170,6 +173,38 @@ public:
 		}
 		Mat curr_hsv_frame, diff_frame, thre_frame;
 		cvtColor(curr_bgr_frame, curr_hsv_frame, CV_BGR2HSV);
+		cvtColor(curr_bgr_frame, curr_gray, CV_BGR2GRAY);
+
+		vector <Point2f> prev_corner, cur_corner;
+		vector <Point2f> prev_corner2, cur_corner2;
+		vector <uchar> status;
+		vector <float> err;
+
+		goodFeaturesToTrack(curr_gray, prev_corner, 200, 0.01, 30);
+		calcOpticalFlowPyrLK(curr_gray, prev_gray, prev_corner, cur_corner, status, err);
+
+		// weed out bad matches
+		for (size_t i = 0; i < status.size(); i++) {
+			if (status[i]) {
+				prev_corner2.push_back(prev_corner[i]);
+				cur_corner2.push_back(cur_corner[i]);
+			}
+		}
+
+		// translation + rotation only
+		current_transform = estimateRigidTransform(prev_corner2, cur_corner2, false); // false = rigid transform, no scaling/shearing
+		if (current_transform.rows == 0){ current_transform = previous_transform.clone(); }
+		Mat current_stabilized, current_diff;
+		warpAffine(curr_gray, current_stabilized, current_transform, curr_gray.size());
+		absdiff(current_stabilized, prev_gray, current_diff);
+		//current_stabilized = current_stabilized(Range(vert_border, current_stabilized.rows - vert_border), Range(HORIZONTAL_BORDER_CROP, current_stabilized.cols - HORIZONTAL_BORDER_CROP));
+		imshow("stabilised", current_stabilized);
+		imshow("stab-diff", current_diff);
+		/*absdiff(curr_gray, prev_gray, current_diff);
+		imshow("just-diff", current_diff);*/
+		threshold(current_diff, current_diff, SENSITIVITY_VALUE, 255, THRESH_BINARY);
+		imshow("thresh-diff", current_diff);
+
 
 		substractor->operator()(curr_bgr_frame, diff_frame);
 		inRange(curr_hsv_frame, hsv_min, hsv_max, thre_frame);
@@ -217,6 +252,8 @@ public:
 		}
 		imshow(MAIN_WINDOW, curr_bgr_frame);
 		WritePosition(x_pos, y_pos);
+		previous_transform = current_transform.clone();
+		prev_gray = curr_gray.clone();
 	}
 
 	void PauseRoutine()
@@ -233,6 +270,8 @@ public:
 	{
 		Prelearn();
 		capture.read(curr_bgr_frame);
+		vert_border = HORIZONTAL_BORDER_CROP * curr_bgr_frame.rows / curr_bgr_frame.cols; // get the aspect ratio correct
+		cvtColor(curr_bgr_frame, prev_gray, CV_BGR2GRAY);
 		namedWindow(MAIN_WINDOW);
 		setMouseCallback(MAIN_WINDOW, ClickAndDragRectangle, &curr_bgr_frame);
 
