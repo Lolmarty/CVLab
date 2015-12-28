@@ -36,7 +36,6 @@ class GenericClassnameOneTracker9000
 {
 	VideoCapture capture;
 	ofstream logger;
-	BackgroundSubtractor* substractor;
 	static bool mouse_is_dragging;
 	static bool mouse_is_moving;
 	static bool rectangle_selected;
@@ -44,7 +43,6 @@ class GenericClassnameOneTracker9000
 
 	//routine runtime parameters
 	Mat current_transform, previous_transform;
-	int vert_border;
 	Mat curr_bgr_frame, curr_gray,prev_gray;
 	bool debug;
 	bool running = true;
@@ -63,18 +61,6 @@ public:
 	~GenericClassnameOneTracker9000()
 	{
 		logger.close();
-	}
-
-	void Prelearn()
-	{
-		Mat frame;
-		substractor = new BackgroundSubtractorMOG(MOG_HISTORY, MIXTURES, BACKGROUND_RATIO, NOISE_SIGMA);
-		for (int frame_no = 0; frame_no < FRAME_CAP; frame_no++)
-		{
-			capture.read(frame);
-			if (frame.empty()) throw exception("not enough frames");
-			substractor->operator()(frame, frame,LEARNING_RATE);
-		}
 	}
 
 	static void GetHSVBoundaries(Mat frame)
@@ -180,8 +166,8 @@ public:
 		vector <uchar> status;
 		vector <float> err;
 
-		goodFeaturesToTrack(curr_gray, prev_corner, 200, 0.01, 30);
-		calcOpticalFlowPyrLK(curr_gray, prev_gray, prev_corner, cur_corner, status, err);
+		goodFeaturesToTrack(prev_gray, prev_corner, 200, 0.01, 30);
+		calcOpticalFlowPyrLK(prev_gray, curr_gray, prev_corner, cur_corner, status, err);
 
 		// weed out bad matches
 		for (size_t i = 0; i < status.size(); i++) {
@@ -193,26 +179,27 @@ public:
 
 		// translation + rotation only
 		current_transform = estimateRigidTransform(prev_corner2, cur_corner2, false); // false = rigid transform, no scaling/shearing
-		if (current_transform.rows == 0){ current_transform = previous_transform.clone(); }
-		Mat current_stabilized, current_diff;
-		warpAffine(curr_gray, current_stabilized, current_transform, curr_gray.size());
-		absdiff(current_stabilized, prev_gray, current_diff);
-		//current_stabilized = current_stabilized(Range(vert_border, current_stabilized.rows - vert_border), Range(HORIZONTAL_BORDER_CROP, current_stabilized.cols - HORIZONTAL_BORDER_CROP));
-		imshow("stabilised", current_stabilized);
+		if (current_transform.rows == 0)
+		{
+			current_transform = previous_transform.clone();
+		}
+		Mat stabilized, current_diff;
+		warpAffine(prev_gray, stabilized, current_transform, prev_gray.size());
+		absdiff(stabilized, curr_gray, current_diff);
 		imshow("stab-diff", current_diff);
-		/*absdiff(curr_gray, prev_gray, current_diff);
-		imshow("just-diff", current_diff);*/
-		threshold(current_diff, current_diff, SENSITIVITY_VALUE, 255, THRESH_BINARY);
+		Mat element = getStructuringElement(MORPH_RECT, Size(BLUR_SIZE, BLUR_SIZE));
+		morphologyEx(current_diff, current_diff, MORPH_CLOSE, element);
+		imshow("pre-blur", current_diff);
+		//blur(current_diff, current_diff, Size(BLUR_SIZE, BLUR_SIZE));
+		imshow("post-blur", current_diff);
+		//threshold(current_diff, current_diff, SENSITIVITY_VALUE, 255, THRESH_BINARY);
 		imshow("thresh-diff", current_diff);
 
-
-		substractor->operator()(curr_bgr_frame, diff_frame);
 		inRange(curr_hsv_frame, hsv_min, hsv_max, thre_frame);
-		bitwise_and(diff_frame, thre_frame, diff_frame);
+		bitwise_and(current_diff, thre_frame, diff_frame);
 
 
 		threshold(diff_frame, thre_frame, SENSITIVITY_VALUE, 255, THRESH_BINARY);
-		Mat element = getStructuringElement(MORPH_RECT, Size(BLUR_SIZE, BLUR_SIZE));
 		morphologyEx(thre_frame, thre_frame, MORPH_CLOSE, element);
 		blur(thre_frame, thre_frame, Size(BLUR_SIZE, BLUR_SIZE));
 		threshold(thre_frame, thre_frame, SENSITIVITY_VALUE, 255, THRESH_BINARY);
@@ -268,9 +255,7 @@ public:
 
 	void Routine()
 	{
-		Prelearn();
 		capture.read(curr_bgr_frame);
-		vert_border = HORIZONTAL_BORDER_CROP * curr_bgr_frame.rows / curr_bgr_frame.cols; // get the aspect ratio correct
 		cvtColor(curr_bgr_frame, prev_gray, CV_BGR2GRAY);
 		namedWindow(MAIN_WINDOW);
 		setMouseCallback(MAIN_WINDOW, ClickAndDragRectangle, &curr_bgr_frame);
