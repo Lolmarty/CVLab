@@ -1,5 +1,6 @@
 #include <iostream>
 #include <fstream>
+#include <algorithm>
 
 #include "opencv2/core/core.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
@@ -21,6 +22,7 @@ using namespace optparse;
 #define MAIN_WINDOW "poots"
 #define DIFF_WINDOW "diff"
 #define THRE_WINDOW "thre"
+#define DEBUG_WINDOW "debug"
 
 
 #define SENSITIVITY_VALUE 15
@@ -42,14 +44,16 @@ class GenericClassnameOneTracker9000
 	static Point initial_click_point, current_mouse_point;
 
 	//routine runtime parameters
+	vector<Mat*> debug_images;
 	Mat current_transform, previous_transform;
-	Mat curr_bgr_frame, curr_gray,prev_gray;
+	Mat curr_bgr_frame, curr_gray, prev_gray;
 	bool debug;
 	bool running = true;
 	bool paused = false;
 public:
 	static Scalar hsv_min;
 	static Scalar hsv_max;
+
 	GenericClassnameOneTracker9000(string filename, string log_name, bool extern_debug)
 	{
 		debug = extern_debug;
@@ -61,6 +65,48 @@ public:
 	~GenericClassnameOneTracker9000()
 	{
 		logger.close();
+	}
+
+	void AddToDebugImages(Mat* image_pointer)
+	{
+		if (find(debug_images.begin(), debug_images.end(), image_pointer) == debug_images.end())
+		{
+			debug_images.push_back(image_pointer);
+		}
+	}
+
+	void ShowDebugImages()
+	{
+		if (!debug_images.empty())
+		{
+			Mat full_image(*debug_images[0]);
+			int middle = debug_images.size() / 2;
+			int content_height = 0;
+			int content_width = full_image.cols;
+			for (int xpos = 1; xpos < debug_images.size(); xpos++)
+			{
+				if (xpos == middle + 1)//this is really stupid and could be fixed by ypos but noo, look at mister fancy pants
+				{
+					content_width = 0;
+					content_height = full_image.rows;
+				}
+				Mat temp = *debug_images[xpos];
+				Rect image_position(content_width, content_height, temp.cols, temp.rows);
+				Rect full_image_rect(0, 0, full_image.cols, full_image.rows);
+				bool is_inside = (full_image_rect & image_position) == image_position;
+				if (!is_inside)
+				{
+					Mat temp_full_image((full_image.rows > (image_position.y + image_position.height)) ? full_image.rows : image_position.y + image_position.height, 
+						(full_image.cols > (image_position.x + image_position.width)) ? full_image.cols : image_position.x + image_position.width, full_image.type());
+					full_image.copyTo(temp_full_image(Rect(0, 0, full_image.cols, full_image.rows)));
+					full_image = temp_full_image.clone();
+				}
+				//Mat proxy_full(full_image, image_position);
+				temp.copyTo(full_image(image_position));
+				content_width += image_position.width;
+			}
+			imshow(DEBUG_WINDOW, full_image);
+		}
 	}
 
 	static void GetHSVBoundaries(Mat frame)
@@ -81,6 +127,8 @@ public:
 			}
 			hsv_min = Scalar(*min_element(h_values.begin(), h_values.end()), *min_element(s_values.begin(), s_values.end()), *min_element(v_values.begin(), v_values.end()));
 			hsv_max = Scalar(*max_element(h_values.begin(), h_values.end()), *max_element(s_values.begin(), s_values.end()), *max_element(v_values.begin(), v_values.end()));
+			cout << " hsv min " << hsv_min[0] << " " << hsv_min[1] << " " << hsv_min[2] << " " << endl;
+			cout << " hsv max " << hsv_max[0] << " " << hsv_max[1] << " " << hsv_max[2] << " " << endl;
 		}
 	}
 
@@ -100,24 +148,24 @@ public:
 				/* user is dragging the mouse */
 			case CV_EVENT_MOUSEMOVE:
 			{
-				//keep track of current mouse point
-				current_mouse_point = cv::Point(x, y);
-				//user has moved the mouse while clicking and dragging
-				mouse_is_moving = true;
-				break;
+									   //keep track of current mouse point
+									   current_mouse_point = cv::Point(x, y);
+									   //user has moved the mouse while clicking and dragging
+									   mouse_is_moving = true;
+									   break;
 			}
-			/* user has released left button */
+				/* user has released left button */
 			case CV_EVENT_LBUTTONUP:
 			{
-				//reset boolean variables
-				mouse_is_dragging = false;
-				mouse_is_moving = false;
-				rectangle_selected = true;
-				Mat hsv_feed;
-				cvtColor(*videoFeed, hsv_feed, CV_BGR2HSV);
-				Mat chunk(hsv_feed, Rect(initial_click_point, current_mouse_point));
-				GetHSVBoundaries(chunk);
-				break;
+									   //reset boolean variables
+									   mouse_is_dragging = false;
+									   mouse_is_moving = false;
+									   rectangle_selected = true;
+									   Mat hsv_feed;
+									   cvtColor(*videoFeed, hsv_feed, CV_BGR2HSV);
+									   Mat chunk(hsv_feed, Rect(initial_click_point, current_mouse_point));
+									   GetHSVBoundaries(chunk);
+									   break;
 			}
 			}
 		}
@@ -157,7 +205,7 @@ public:
 			running = false;
 			return; // I DON'T LIKE IT
 		}
-		Mat curr_hsv_frame, diff_frame, thre_frame;
+		Mat curr_hsv_frame, thre_frame;
 		cvtColor(curr_bgr_frame, curr_hsv_frame, CV_BGR2HSV);
 		cvtColor(curr_bgr_frame, curr_gray, CV_BGR2GRAY);
 
@@ -186,23 +234,34 @@ public:
 		Mat stabilized, current_diff;
 		warpAffine(prev_gray, stabilized, current_transform, prev_gray.size());
 		absdiff(stabilized, curr_gray, current_diff);
-		imshow("stab-diff", current_diff);
+		AddToDebugImages(&current_diff);//"stab-diff"
+
 		Mat element = getStructuringElement(MORPH_RECT, Size(BLUR_SIZE, BLUR_SIZE));
-		morphologyEx(current_diff, current_diff, MORPH_CLOSE, element);
-		imshow("pre-blur", current_diff);
-		//blur(current_diff, current_diff, Size(BLUR_SIZE, BLUR_SIZE));
-		imshow("post-blur", current_diff);
-		//threshold(current_diff, current_diff, SENSITIVITY_VALUE, 255, THRESH_BINARY);
-		imshow("thresh-diff", current_diff);
+		Mat current_diff_closed;
+		morphologyEx(current_diff, current_diff_closed, MORPH_CLOSE, element);
+		AddToDebugImages(&current_diff_closed);//"pre-blur"
 
-		inRange(curr_hsv_frame, hsv_min, hsv_max, thre_frame);
-		bitwise_and(current_diff, thre_frame, diff_frame);
+		Mat current_diff_closed_blurred;
+		blur(current_diff_closed, current_diff_closed_blurred, Size(BLUR_SIZE, BLUR_SIZE));
+		AddToDebugImages(&current_diff_closed_blurred);//"post-blur"
 
+		Mat current_diff_closed_blurred_threshold;
+		threshold(current_diff_closed_blurred, current_diff_closed_blurred_threshold, SENSITIVITY_VALUE, 255, THRESH_BINARY);
+		AddToDebugImages(&current_diff_closed_blurred_threshold);//"thresh-diff"
 
-		threshold(diff_frame, thre_frame, SENSITIVITY_VALUE, 255, THRESH_BINARY);
-		morphologyEx(thre_frame, thre_frame, MORPH_CLOSE, element);
-		blur(thre_frame, thre_frame, Size(BLUR_SIZE, BLUR_SIZE));
-		threshold(thre_frame, thre_frame, SENSITIVITY_VALUE, 255, THRESH_BINARY);
+		Mat current_in_hsv_range;
+		Mat raw_mask;
+		inRange(curr_hsv_frame, hsv_min, hsv_max, current_in_hsv_range);
+		bitwise_and(current_diff_closed_blurred_threshold, current_in_hsv_range, raw_mask);
+
+		Mat threshold_mask;
+		threshold(raw_mask, threshold_mask, SENSITIVITY_VALUE, 255, THRESH_BINARY);
+		Mat threshold_closed_mask;
+		morphologyEx(threshold_mask, threshold_closed_mask, MORPH_CLOSE, element);
+		Mat threshold_closed_blur_mask;
+		blur(threshold_closed_mask, threshold_closed_blur_mask, Size(BLUR_SIZE, BLUR_SIZE));
+		threshold(threshold_closed_blur_mask, thre_frame, SENSITIVITY_VALUE, 255, THRESH_BINARY);
+		AddToDebugImages(&thre_frame);
 
 		Rect object_bounding_rectangle;
 		Point2d last_position;
@@ -212,8 +271,8 @@ public:
 		findContours(thre_frame, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);  // retrieves external contours
 		/*for (vector<Point> contour : contours)
 		{
-			object_bounding_rectangle = boundingRect(contour);
-			rectangle(curr_bgr_frame, object_bounding_rectangle, Scalar(0, 0, 0));
+		object_bounding_rectangle = boundingRect(contour);
+		rectangle(curr_bgr_frame, object_bounding_rectangle, Scalar(0, 0, 0));
 		}*/
 		object_bounding_rectangle = boundingRect(contours.back());
 		rectangle(curr_bgr_frame, object_bounding_rectangle, Scalar(0, 0, 0));
@@ -226,8 +285,7 @@ public:
 		}
 		if (debug)
 		{
-			imshow(DIFF_WINDOW, diff_frame);
-			imshow(THRE_WINDOW, thre_frame);
+			ShowDebugImages();
 			char* text = new char[10];
 			sprintf(text, "x:%d x:%d", x_pos, y_pos);
 			putText(curr_bgr_frame, text, object_bounding_rectangle.tl(), FONT_HERSHEY_PLAIN, 1, Scalar(0, 0, 0));
@@ -264,7 +322,7 @@ public:
 		{
 			if (!paused) TrackingRoutine();
 			else PauseRoutine();
-			
+
 			switch (waitKey(10))
 			{
 			case 'd':debug = !debug; break;
@@ -292,30 +350,6 @@ Point GenericClassnameOneTracker9000::current_mouse_point = Point();
 Scalar GenericClassnameOneTracker9000::hsv_min = Scalar(0, 0, 0);
 Scalar GenericClassnameOneTracker9000::hsv_max = Scalar(255, 255, 255);
 //gee this is stupid
-
-
-
-
-void GetHSVBoundaries(Mat frame, Scalar& hsv_min, Scalar& hsv_max)
-{
-	hsv_min = Scalar(0, 0, 0);
-	hsv_max = Scalar(255, 255, 255);
-	if (!frame.empty())
-	{
-		vector<int> h_values, s_values, v_values;
-		for (int i = 0; i < frame.cols; i++)
-		{
-			for (int j = 0; j < frame.rows; j++)
-			{
-				h_values.push_back((int)frame.at<cv::Vec3b>(j, i)[0]);
-				s_values.push_back((int)frame.at<cv::Vec3b>(j, i)[1]);
-				v_values.push_back((int)frame.at<cv::Vec3b>(j, i)[2]);
-			}
-		}
-		hsv_min = Scalar(*min_element(h_values.begin(), h_values.end()), *min_element(s_values.begin(), s_values.end()), *min_element(v_values.begin(), v_values.end()));
-		hsv_max = Scalar(*max_element(h_values.begin(), h_values.end()), *max_element(s_values.begin(), s_values.end()), *max_element(v_values.begin(), v_values.end()));
-	}
-}
 
 void main(int argc, char* argv[])
 {
