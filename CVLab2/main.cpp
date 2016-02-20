@@ -96,7 +96,7 @@ public:
 				bool is_inside = (full_image_rect & image_position) == image_position;
 				if (!is_inside)
 				{
-					Mat temp_full_image((full_image.rows > (image_position.y + image_position.height)) ? full_image.rows : image_position.y + image_position.height, 
+					Mat temp_full_image((full_image.rows > (image_position.y + image_position.height)) ? full_image.rows : image_position.y + image_position.height,
 						(full_image.cols > (image_position.x + image_position.width)) ? full_image.cols : image_position.x + image_position.width, full_image.type());
 					full_image.copyTo(temp_full_image(Rect(0, 0, full_image.cols, full_image.rows)));
 					full_image = temp_full_image.clone();
@@ -148,24 +148,24 @@ public:
 				/* user is dragging the mouse */
 			case CV_EVENT_MOUSEMOVE:
 			{
-									   //keep track of current mouse point
-									   current_mouse_point = cv::Point(x, y);
-									   //user has moved the mouse while clicking and dragging
-									   mouse_is_moving = true;
-									   break;
+				//keep track of current mouse point
+				current_mouse_point = cv::Point(x, y);
+				//user has moved the mouse while clicking and dragging
+				mouse_is_moving = true;
+				break;
 			}
-				/* user has released left button */
+			/* user has released left button */
 			case CV_EVENT_LBUTTONUP:
 			{
-									   //reset boolean variables
-									   mouse_is_dragging = false;
-									   mouse_is_moving = false;
-									   rectangle_selected = true;
-									   Mat hsv_feed;
-									   cvtColor(*videoFeed, hsv_feed, CV_BGR2HSV);
-									   Mat chunk(hsv_feed, Rect(initial_click_point, current_mouse_point));
-									   GetHSVBoundaries(chunk);
-									   break;
+				//reset boolean variables
+				mouse_is_dragging = false;
+				mouse_is_moving = false;
+				rectangle_selected = true;
+				Mat hsv_feed;
+				cvtColor(*videoFeed, hsv_feed, CV_BGR2HSV);
+				Mat chunk(hsv_feed, Rect(initial_click_point, current_mouse_point));
+				GetHSVBoundaries(chunk);
+				break;
 			}
 			}
 		}
@@ -199,7 +199,9 @@ public:
 
 	void TrackingRoutine()
 	{
+
 		capture.read(curr_bgr_frame);
+
 		if (curr_bgr_frame.empty())
 		{
 			running = false;
@@ -208,7 +210,6 @@ public:
 		Mat curr_hsv_frame, thre_frame;
 		cvtColor(curr_bgr_frame, curr_hsv_frame, CV_BGR2HSV);
 		cvtColor(curr_bgr_frame, curr_gray, CV_BGR2GRAY);
-
 		vector <Point2f> prev_corner, cur_corner;
 		vector <Point2f> prev_corner2, cur_corner2;
 		vector <uchar> status;
@@ -224,13 +225,17 @@ public:
 				cur_corner2.push_back(cur_corner[i]);
 			}
 		}
-
+		//EXCEPTION CAUSE START
 		// translation + rotation only
-		current_transform = estimateRigidTransform(prev_corner2, cur_corner2, false); // false = rigid transform, no scaling/shearing
+		if (prev_corner2.size()>0 && cur_corner2.size() > 0)
+		{
+			current_transform = estimateRigidTransform(prev_corner2, cur_corner2, false); // false = rigid transform, no scaling/shearing
+		}
 		if (current_transform.rows == 0)
 		{
 			current_transform = previous_transform.clone();
 		}
+		//EXCEPTION CAUSE END
 		Mat stabilized, current_diff;
 		warpAffine(prev_gray, stabilized, current_transform, prev_gray.size());
 		absdiff(stabilized, curr_gray, current_diff);
@@ -263,42 +268,48 @@ public:
 		threshold(threshold_closed_blur_mask, thre_frame, SENSITIVITY_VALUE, 255, THRESH_BINARY);
 		AddToDebugImages(&thre_frame);
 
+
 		Rect object_bounding_rectangle;
 		Point2d last_position;
 		vector< vector<Point> > contours;
 		vector<Vec4i> hierarchy;
 
 		findContours(thre_frame, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);  // retrieves external contours
+
 		/*for (vector<Point> contour : contours)
 		{
 		object_bounding_rectangle = boundingRect(contour);
 		rectangle(curr_bgr_frame, object_bounding_rectangle, Scalar(0, 0, 0));
 		}*/
-		object_bounding_rectangle = boundingRect(contours.back());
-		rectangle(curr_bgr_frame, object_bounding_rectangle, Scalar(0, 0, 0));
-		int x_pos = object_bounding_rectangle.x + object_bounding_rectangle.width / 2;
-		int y_pos = object_bounding_rectangle.y + object_bounding_rectangle.height / 2;
+		if (contours.size() > 0)//hotfix. find a better solution
+		{
+			object_bounding_rectangle = boundingRect(contours.back());
+			rectangle(curr_bgr_frame, object_bounding_rectangle, Scalar(0, 0, 0));
+			int x_pos = object_bounding_rectangle.x + object_bounding_rectangle.width / 2;
+			int y_pos = object_bounding_rectangle.y + object_bounding_rectangle.height / 2;
 
-		if (mouse_is_dragging)
-		{
-			rectangle(curr_bgr_frame, initial_click_point, current_mouse_point, Scalar(0, 0, 0));
+			if (mouse_is_dragging)
+			{
+				rectangle(curr_bgr_frame, initial_click_point, current_mouse_point, Scalar(0, 0, 0));
+			}
+			if (debug)
+			{
+				ShowDebugImages();
+				char* text = new char[10];
+				sprintf(text, "x:%d x:%d", x_pos, y_pos);
+				putText(curr_bgr_frame, text, object_bounding_rectangle.tl(), FONT_HERSHEY_PLAIN, 1, Scalar(0, 0, 0));
+			}
+			else
+			{
+				cvDestroyWindow(DIFF_WINDOW);
+				cvDestroyWindow(THRE_WINDOW);
+			}
+			imshow(MAIN_WINDOW, curr_bgr_frame);
+			WritePosition(x_pos, y_pos);
 		}
-		if (debug)
-		{
-			ShowDebugImages();
-			char* text = new char[10];
-			sprintf(text, "x:%d x:%d", x_pos, y_pos);
-			putText(curr_bgr_frame, text, object_bounding_rectangle.tl(), FONT_HERSHEY_PLAIN, 1, Scalar(0, 0, 0));
-		}
-		else
-		{
-			cvDestroyWindow(DIFF_WINDOW);
-			cvDestroyWindow(THRE_WINDOW);
-		}
-		imshow(MAIN_WINDOW, curr_bgr_frame);
-		WritePosition(x_pos, y_pos);
 		previous_transform = current_transform.clone();
 		prev_gray = curr_gray.clone();
+
 	}
 
 	void PauseRoutine()
