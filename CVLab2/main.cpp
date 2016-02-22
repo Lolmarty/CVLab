@@ -20,8 +20,6 @@ using namespace optparse;
 
 
 #define MAIN_WINDOW "poots"
-#define DIFF_WINDOW "diff"
-#define THRE_WINDOW "thre"
 #define DEBUG_WINDOW "debug"
 
 
@@ -148,24 +146,24 @@ public:
 				/* user is dragging the mouse */
 			case CV_EVENT_MOUSEMOVE:
 			{
-				//keep track of current mouse point
-				current_mouse_point = cv::Point(x, y);
-				//user has moved the mouse while clicking and dragging
-				mouse_is_moving = true;
-				break;
+									   //keep track of current mouse point
+									   current_mouse_point = cv::Point(x, y);
+									   //user has moved the mouse while clicking and dragging
+									   mouse_is_moving = true;
+									   break;
 			}
-			/* user has released left button */
+				/* user has released left button */
 			case CV_EVENT_LBUTTONUP:
 			{
-				//reset boolean variables
-				mouse_is_dragging = false;
-				mouse_is_moving = false;
-				rectangle_selected = true;
-				Mat hsv_feed;
-				cvtColor(*videoFeed, hsv_feed, CV_BGR2HSV);
-				Mat chunk(hsv_feed, Rect(initial_click_point, current_mouse_point));
-				GetHSVBoundaries(chunk);
-				break;
+									   //reset boolean variables
+									   mouse_is_dragging = false;
+									   mouse_is_moving = false;
+									   rectangle_selected = true;
+									   Mat hsv_feed;
+									   cvtColor(*videoFeed, hsv_feed, CV_BGR2HSV);
+									   Mat chunk(hsv_feed, Rect(initial_click_point, current_mouse_point));
+									   GetHSVBoundaries(chunk);
+									   break;
 			}
 			}
 		}
@@ -281,32 +279,32 @@ public:
 		object_bounding_rectangle = boundingRect(contour);
 		rectangle(curr_bgr_frame, object_bounding_rectangle, Scalar(0, 0, 0));
 		}*/
+		int x_pos = -1;
+		int y_pos = -1;
 		if (contours.size() > 0)//hotfix. find a better solution
 		{
 			object_bounding_rectangle = boundingRect(contours.back());
 			rectangle(curr_bgr_frame, object_bounding_rectangle, Scalar(0, 0, 0));
-			int x_pos = object_bounding_rectangle.x + object_bounding_rectangle.width / 2;
-			int y_pos = object_bounding_rectangle.y + object_bounding_rectangle.height / 2;
-
-			if (mouse_is_dragging)
-			{
-				rectangle(curr_bgr_frame, initial_click_point, current_mouse_point, Scalar(0, 0, 0));
-			}
-			if (debug)
-			{
-				ShowDebugImages();
-				char* text = new char[10];
-				sprintf(text, "x:%d x:%d", x_pos, y_pos);
-				putText(curr_bgr_frame, text, object_bounding_rectangle.tl(), FONT_HERSHEY_PLAIN, 1, Scalar(0, 0, 0));
-			}
-			else
-			{
-				cvDestroyWindow(DIFF_WINDOW);
-				cvDestroyWindow(THRE_WINDOW);
-			}
-			imshow(MAIN_WINDOW, curr_bgr_frame);
+			x_pos = object_bounding_rectangle.x + object_bounding_rectangle.width / 2;
+			y_pos = object_bounding_rectangle.y + object_bounding_rectangle.height / 2;
 			WritePosition(x_pos, y_pos);
 		}
+		if (debug)
+		{
+			ShowDebugImages();
+			char* text = new char[10];
+			sprintf(text, "x:%d x:%d", x_pos, y_pos);
+			putText(curr_bgr_frame, text, object_bounding_rectangle.tl(), FONT_HERSHEY_PLAIN, 1, Scalar(0, 0, 0));
+		}
+		else
+		{
+			cvDestroyWindow(DEBUG_WINDOW);
+		}
+		if (mouse_is_dragging)
+		{
+			rectangle(curr_bgr_frame, initial_click_point, current_mouse_point, Scalar(0, 0, 0));
+		}
+		imshow(MAIN_WINDOW, curr_bgr_frame);
 		previous_transform = current_transform.clone();
 		prev_gray = curr_gray.clone();
 
@@ -347,8 +345,7 @@ public:
 		cvDestroyWindow(MAIN_WINDOW);
 		if (debug)
 		{
-			cvDestroyWindow(DIFF_WINDOW);
-			cvDestroyWindow(THRE_WINDOW);
+			cvDestroyWindow(DEBUG_WINDOW);
 		}
 	}
 };
