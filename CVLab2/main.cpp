@@ -17,7 +17,7 @@ using namespace cv;
 using namespace std;
 using namespace optparse;
 #define HORIZONTAL_BORDER_CROP 20
-
+#define FRAMES_PER_SECOND 15
 
 #define MAIN_WINDOW "poots"
 #define DEBUG_WINDOW "debug"
@@ -35,6 +35,7 @@ using namespace optparse;
 class GenericClassnameOneTracker9000
 {
 	VideoCapture capture;
+	VideoWriter writer;
 	ofstream logger;
 	static bool mouse_is_dragging;
 	static bool mouse_is_moving;
@@ -46,22 +47,28 @@ class GenericClassnameOneTracker9000
 	Mat current_transform, previous_transform;
 	Mat curr_bgr_frame, curr_gray, prev_gray;
 	bool debug;
+	bool recording;
 	bool running = true;
 	bool paused = false;
 public:
 	static Scalar hsv_min;
 	static Scalar hsv_max;
 
-	GenericClassnameOneTracker9000(string filename, string log_name, bool extern_debug)
+	GenericClassnameOneTracker9000(string filename, string log_name, string output_path, bool extern_debug, bool extern_recording)
 	{
 		debug = extern_debug;
+		recording = extern_recording;
 		capture = VideoCapture(filename);
 		logger.open(log_name);
 		logger << filename << endl;
+		Mat tmp;
+		capture.read(tmp);
+		writer.open(output_path, CV_FOURCC('M', 'P', '4', '3'), FRAMES_PER_SECOND, tmp.size());
 	}
 
 	~GenericClassnameOneTracker9000()
 	{
+		writer.release();
 		logger.close();
 	}
 
@@ -300,6 +307,15 @@ public:
 		{
 			cvDestroyWindow(DEBUG_WINDOW);
 		}
+		if (recording)
+		{
+			if (writer.isOpened())
+			{
+				writer.write(curr_bgr_frame);
+			}
+			else throw exception("well shit");
+			circle(curr_bgr_frame, Point(10, 10), 8, Scalar(0, 0, 255),-1);
+		}
 		if (mouse_is_dragging)
 		{
 			rectangle(curr_bgr_frame, initial_click_point, current_mouse_point, Scalar(0, 0, 0));
@@ -340,6 +356,8 @@ public:
 			case 'p':paused = !paused; break;
 			case 'P':paused = !paused; break;
 			case ' ':paused = !paused; break;
+			case 'r':recording = !recording; break;
+			case 'R':recording = !recording; break;
 			}
 		}
 		cvDestroyWindow(MAIN_WINDOW);
@@ -364,10 +382,11 @@ void main(int argc, char* argv[])
 	OptionParser optparse = OptionParser();
 	optparse.add_option("--infile").help("select source for tracking");
 	optparse.add_option("--outlog").help("select file for output");
+	optparse.add_option("--outvideo").help("select file for video output");
 	optparse.add_option("--debug").action("store_true").help("show debug windows");
-
+	optparse.add_option("--recording").action("store_true").help("record the tracking process (just the main window)");
 
 	Values& options = optparse.parse_args(argc, argv);
-	GenericClassnameOneTracker9000 tracker(options["infile"], options["outlog"], options.is_set("debug"));
+	GenericClassnameOneTracker9000 tracker(options["infile"], options["outlog"], options["outvideo"], options.is_set("debug"), options.is_set("recording"));
 	tracker.Routine();
 }
