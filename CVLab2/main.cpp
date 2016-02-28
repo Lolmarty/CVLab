@@ -21,7 +21,7 @@ using namespace optparse;
 
 #define MAIN_WINDOW "poots"
 #define DEBUG_WINDOW "debug"
-
+#define DEBUG_DOWNSCALE 0.5
 
 #define SENSITIVITY_VALUE 15
 #define BLUR_SIZE 20
@@ -35,7 +35,7 @@ using namespace optparse;
 class GenericClassnameOneTracker9000
 {
 	VideoCapture capture;
-	VideoWriter writer;
+	VideoWriter tracking_recorder;
 	ofstream logger;
 	static bool mouse_is_dragging;
 	static bool mouse_is_moving;
@@ -44,6 +44,7 @@ class GenericClassnameOneTracker9000
 
 	//routine runtime parameters
 	vector<Mat*> debug_images;
+	vector<char*> debug_image_labels;
 	Mat current_transform, previous_transform;
 	Mat curr_bgr_frame, curr_gray, prev_gray;
 	bool debug;
@@ -63,20 +64,21 @@ public:
 		logger << filename << endl;
 		Mat tmp;
 		capture.read(tmp);
-		writer.open(output_path, CV_FOURCC('M', 'P', '4', '3'), FRAMES_PER_SECOND, tmp.size());
+		tracking_recorder.open(output_path, CV_FOURCC('M', 'P', '4', '3'), FRAMES_PER_SECOND, tmp.size());
 	}
 
 	~GenericClassnameOneTracker9000()
 	{
-		writer.release();
+		tracking_recorder.release();
 		logger.close();
 	}
 
-	void AddToDebugImages(Mat* image_pointer)
+	void AddToDebugImages(Mat* image_pointer, char* label_pointer)
 	{
 		if (find(debug_images.begin(), debug_images.end(), image_pointer) == debug_images.end())
 		{
 			debug_images.push_back(image_pointer);
+			debug_image_labels.push_back(label_pointer);
 		}
 	}
 
@@ -84,32 +86,39 @@ public:
 	{
 		if (!debug_images.empty())
 		{
-			Mat full_image(*debug_images[0]);
-			int middle = debug_images.size() / 2;
+			int item_count = debug_images.size();
+			int max_images_width = 4;
+			int max_images_height = item_count / max_images_width + ((item_count % max_images_width) ? 1 : 0);
+			Mat full_image(1, 1, (*debug_images[0]).type());
 			int content_height = 0;
-			int content_width = full_image.cols;
-			for (int xpos = 1; xpos < debug_images.size(); xpos++)
+			int content_width = 0;
+			int counter = 0;
+
+			for (int ypos = 0; ypos < max_images_height && counter < item_count; ypos++)
 			{
-				if (xpos == middle + 1)//this is really stupid and could be fixed by ypos but noo, look at mister fancy pants
+				for (int xpos = 0; xpos < max_images_width && counter < item_count; xpos++, counter++)
 				{
-					content_width = 0;
-					content_height = full_image.rows;
+					Mat temp = (*debug_images[counter]).clone();
+
+					putText(temp, debug_image_labels[counter], Point(20, 20), CV_FONT_HERSHEY_PLAIN, 1, Scalar(255, 255, 255));
+
+					Rect image_position(content_width, content_height, temp.cols, temp.rows);
+					Rect full_image_rect(0, 0, full_image.cols, full_image.rows);
+					bool is_inside = (full_image_rect & image_position) == image_position;
+					if (!is_inside)
+					{
+						Mat temp_full_image((full_image.rows > (image_position.y + image_position.height)) ? full_image.rows : image_position.y + image_position.height,
+							(full_image.cols > (image_position.x + image_position.width)) ? full_image.cols : image_position.x + image_position.width, full_image.type());
+						full_image.copyTo(temp_full_image(Rect(0, 0, full_image.cols, full_image.rows)));
+						full_image = temp_full_image.clone();
+					}
+					temp.copyTo(full_image(image_position));
+					content_width += image_position.width;
 				}
-				Mat temp = *debug_images[xpos];
-				Rect image_position(content_width, content_height, temp.cols, temp.rows);
-				Rect full_image_rect(0, 0, full_image.cols, full_image.rows);
-				bool is_inside = (full_image_rect & image_position) == image_position;
-				if (!is_inside)
-				{
-					Mat temp_full_image((full_image.rows > (image_position.y + image_position.height)) ? full_image.rows : image_position.y + image_position.height,
-						(full_image.cols > (image_position.x + image_position.width)) ? full_image.cols : image_position.x + image_position.width, full_image.type());
-					full_image.copyTo(temp_full_image(Rect(0, 0, full_image.cols, full_image.rows)));
-					full_image = temp_full_image.clone();
-				}
-				//Mat proxy_full(full_image, image_position);
-				temp.copyTo(full_image(image_position));
-				content_width += image_position.width;
+				content_width = 0;
+				content_height = full_image.rows;
 			}
+			resize(full_image, full_image, Size(0, 0), DEBUG_DOWNSCALE, DEBUG_DOWNSCALE);
 			imshow(DEBUG_WINDOW, full_image);
 		}
 	}
@@ -153,24 +162,24 @@ public:
 				/* user is dragging the mouse */
 			case CV_EVENT_MOUSEMOVE:
 			{
-									   //keep track of current mouse point
-									   current_mouse_point = cv::Point(x, y);
-									   //user has moved the mouse while clicking and dragging
-									   mouse_is_moving = true;
-									   break;
+				//keep track of current mouse point
+				current_mouse_point = cv::Point(x, y);
+				//user has moved the mouse while clicking and dragging
+				mouse_is_moving = true;
+				break;
 			}
-				/* user has released left button */
+			/* user has released left button */
 			case CV_EVENT_LBUTTONUP:
 			{
-									   //reset boolean variables
-									   mouse_is_dragging = false;
-									   mouse_is_moving = false;
-									   rectangle_selected = true;
-									   Mat hsv_feed;
-									   cvtColor(*videoFeed, hsv_feed, CV_BGR2HSV);
-									   Mat chunk(hsv_feed, Rect(initial_click_point, current_mouse_point));
-									   GetHSVBoundaries(chunk);
-									   break;
+				//reset boolean variables
+				mouse_is_dragging = false;
+				mouse_is_moving = false;
+				rectangle_selected = true;
+				Mat hsv_feed;
+				cvtColor(*videoFeed, hsv_feed, CV_BGR2HSV);
+				Mat chunk(hsv_feed, Rect(initial_click_point, current_mouse_point));
+				GetHSVBoundaries(chunk);
+				break;
 			}
 			}
 		}
@@ -204,7 +213,6 @@ public:
 
 	void TrackingRoutine()
 	{
-
 		capture.read(curr_bgr_frame);
 
 		if (curr_bgr_frame.empty())
@@ -212,7 +220,7 @@ public:
 			running = false;
 			return; // I DON'T LIKE IT
 		}
-		Mat curr_hsv_frame, thre_frame;
+		Mat curr_hsv_frame;
 		cvtColor(curr_bgr_frame, curr_hsv_frame, CV_BGR2HSV);
 		cvtColor(curr_bgr_frame, curr_gray, CV_BGR2GRAY);
 		vector <Point2f> prev_corner, cur_corner;
@@ -230,7 +238,6 @@ public:
 				cur_corner2.push_back(cur_corner[i]);
 			}
 		}
-		//EXCEPTION CAUSE START
 		// translation + rotation only
 		if (prev_corner2.size()>0 && cur_corner2.size() > 0)
 		{
@@ -240,52 +247,89 @@ public:
 		{
 			current_transform = previous_transform.clone();
 		}
-		//EXCEPTION CAUSE END
-		Mat stabilized, current_diff;
+
+		///Diff Section
+		Mat stabilized, stab_diff;
 		warpAffine(prev_gray, stabilized, current_transform, prev_gray.size());
-		absdiff(stabilized, curr_gray, current_diff);
-		AddToDebugImages(&current_diff);//"stab-diff"
+		absdiff(stabilized, curr_gray, stab_diff);
+		AddToDebugImages(&stab_diff, "stab_diff");
+
+		Mat block(prev_gray.size(), prev_gray.type(), Scalar(255));
+		Mat rotated_block;
+		warpAffine(block, rotated_block, current_transform, block.size());
+		Mat rotational_compensating_mask;
+		absdiff(rotated_block, block, rotational_compensating_mask);
+		bitwise_not(rotational_compensating_mask, rotational_compensating_mask);
+		//bitwise_and(rotational_compensating_mask, stab_diff, stab_diff);
+		AddToDebugImages(&rotational_compensating_mask, "rotational_compensating_mask");
+
 
 		Mat element = getStructuringElement(MORPH_RECT, Size(BLUR_SIZE, BLUR_SIZE));
-		Mat current_diff_closed;
-		morphologyEx(current_diff, current_diff_closed, MORPH_CLOSE, element);
-		AddToDebugImages(&current_diff_closed);//"pre-blur"
+		Mat diff_closed;
+		morphologyEx(stab_diff, diff_closed, MORPH_CLOSE, element);
+		AddToDebugImages(&diff_closed, "diff_closed");
 
-		Mat current_diff_closed_blurred;
-		blur(current_diff_closed, current_diff_closed_blurred, Size(BLUR_SIZE, BLUR_SIZE));
-		AddToDebugImages(&current_diff_closed_blurred);//"post-blur"
+		Mat diff_closed_blur;
+		blur(diff_closed, diff_closed_blur, Size(BLUR_SIZE, BLUR_SIZE));
+		AddToDebugImages(&diff_closed_blur, "diff_closed_blur");
 
-		Mat current_diff_closed_blurred_threshold;
-		threshold(current_diff_closed_blurred, current_diff_closed_blurred_threshold, SENSITIVITY_VALUE, 255, THRESH_BINARY);
-		AddToDebugImages(&current_diff_closed_blurred_threshold);//"thresh-diff"
+		Mat diff_closed_blur_threshold;
+		threshold(diff_closed_blur, diff_closed_blur_threshold, SENSITIVITY_VALUE, 255, THRESH_BINARY);
+		AddToDebugImages(&diff_closed_blur_threshold, "diff_closed_blur_threshold");
+		//Diff Section End
 
-		Mat current_in_hsv_range;
+		//Color Section
+		Mat hsv_in_range;
+		inRange(curr_hsv_frame, hsv_min, hsv_max, hsv_in_range);
+		AddToDebugImages(&hsv_in_range, "hsv_in_range");
+
+		Mat hsv_in_range_closed;
+		morphologyEx(hsv_in_range, hsv_in_range_closed, MORPH_CLOSE, element);
+		AddToDebugImages(&hsv_in_range_closed, "hsv_in_range_closed");
+
+		Mat hsv_in_range_closed_blur;
+		blur(hsv_in_range_closed, hsv_in_range_closed_blur, Size(BLUR_SIZE, BLUR_SIZE));
+		AddToDebugImages(&hsv_in_range_closed_blur, "hsv_in_range_closed_blur");
+
+		Mat hsv_in_range_closed_blur_threshold;
+		threshold(hsv_in_range_closed_blur, hsv_in_range_closed_blur_threshold, SENSITIVITY_VALUE, 255, THRESH_BINARY);
+		AddToDebugImages(&hsv_in_range_closed_blur_threshold, "hsv_in_range_closed_blur_threshold");
+		//Color Section End
+
+		//Union Section
 		Mat raw_mask;
-		inRange(curr_hsv_frame, hsv_min, hsv_max, current_in_hsv_range);
-		bitwise_and(current_diff_closed_blurred_threshold, current_in_hsv_range, raw_mask);
+		bitwise_and(diff_closed_blur_threshold, hsv_in_range, raw_mask);
+		AddToDebugImages(&raw_mask, "raw_mask");
 
 		Mat threshold_mask;
 		threshold(raw_mask, threshold_mask, SENSITIVITY_VALUE, 255, THRESH_BINARY);
+		AddToDebugImages(&threshold_mask, "threshold_mask");
+
 		Mat threshold_closed_mask;
 		morphologyEx(threshold_mask, threshold_closed_mask, MORPH_CLOSE, element);
+		AddToDebugImages(&threshold_closed_mask, "threshold_closed_mask");
+
 		Mat threshold_closed_blur_mask;
 		blur(threshold_closed_mask, threshold_closed_blur_mask, Size(BLUR_SIZE, BLUR_SIZE));
-		threshold(threshold_closed_blur_mask, thre_frame, SENSITIVITY_VALUE, 255, THRESH_BINARY);
-		AddToDebugImages(&thre_frame);
+		AddToDebugImages(&threshold_closed_blur_mask, "threshold_closed_blur_mask");
 
+		Mat final_mask;
+		threshold(threshold_closed_blur_mask, final_mask, SENSITIVITY_VALUE, 255, THRESH_BINARY);
+		AddToDebugImages(&final_mask, "final_mask");
+		//Union Section end
 
 		Rect object_bounding_rectangle;
 		Point2d last_position;
 		vector< vector<Point> > contours;
 		vector<Vec4i> hierarchy;
 
-		findContours(thre_frame, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);  // retrieves external contours
+		findContours(final_mask, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);  // retrieves external contours
 
-		/*for (vector<Point> contour : contours)
+		for (vector<Point> contour : contours)
 		{
 		object_bounding_rectangle = boundingRect(contour);
-		rectangle(curr_bgr_frame, object_bounding_rectangle, Scalar(0, 0, 0));
-		}*/
+		rectangle(curr_bgr_frame, object_bounding_rectangle, Scalar(0, 150, 0));
+		}
 		int x_pos = -1;
 		int y_pos = -1;
 		if (contours.size() > 0)//hotfix. find a better solution
@@ -309,12 +353,12 @@ public:
 		}
 		if (recording)
 		{
-			if (writer.isOpened())
+			if (tracking_recorder.isOpened())
 			{
-				writer.write(curr_bgr_frame);
+				tracking_recorder.write(curr_bgr_frame);
 			}
 			else throw exception("well shit");
-			circle(curr_bgr_frame, Point(10, 10), 8, Scalar(0, 0, 255),-1);
+			circle(curr_bgr_frame, Point(10, 10), 8, Scalar(0, 0, 255), -1);
 		}
 		if (mouse_is_dragging)
 		{
@@ -383,8 +427,8 @@ void main(int argc, char* argv[])
 	optparse.add_option("--infile").help("select source for tracking");
 	optparse.add_option("--outlog").help("select file for output");
 	optparse.add_option("--outvideo").help("select file for video output");
-	optparse.add_option("--debug").action("store_true").help("show debug windows");
-	optparse.add_option("--recording").action("store_true").help("record the tracking process (just the main window)");
+	optparse.add_option("--debug").action("store_false").help("show debug windows");
+	optparse.add_option("--recording").action("store_false").help("record the tracking process (just the main window)");
 
 	Values& options = optparse.parse_args(argc, argv);
 	GenericClassnameOneTracker9000 tracker(options["infile"], options["outlog"], options["outvideo"], options.is_set("debug"), options.is_set("recording"));

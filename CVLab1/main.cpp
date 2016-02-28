@@ -230,25 +230,3 @@ int main(int argc, char* argv[])
 	gc.Routine2();
 	return 0;
 }
-
-int m1ain()
-{
-	double angle = 0;
-	double delta = 13.24;
-	while (true)
-	{
-		angle += delta;
-
-		cout << angle << endl;
-		while (angle / 360 > 1)
-		{
-			angle -= 360;
-			cout << angle << endl;
-		}
-		if (angle<0)
-		{
-			angle += 360;
-		}
-		this_thread::sleep_for(chrono::milliseconds(200));
-	}
-}
