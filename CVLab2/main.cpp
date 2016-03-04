@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <algorithm>
+#include <ctime>
 
 #include "opencv2/core/core.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
@@ -213,6 +214,10 @@ public:
 
 	void TrackingRoutine()
 	{
+
+
+		int64 start, finish;
+		start = getTickCount();
 		capture.read(curr_bgr_frame);
 
 		if (curr_bgr_frame.empty())
@@ -332,14 +337,29 @@ public:
 		}
 		int x_pos = -1;
 		int y_pos = -1;
+		
+		//Mat object_cutout(curr_gray.size(), curr_gray.type());
+		
 		if (contours.size() > 0)//hotfix. find a better solution
 		{
 			object_bounding_rectangle = boundingRect(contours.back());
 			rectangle(curr_bgr_frame, object_bounding_rectangle, Scalar(0, 0, 0));
+
+			/*Mat bg_model, fg_model, object_mask;
+			grabCut(curr_bgr_frame, object_mask, object_bounding_rectangle, bg_model, fg_model, 1, GC_INIT_WITH_RECT);
+			compare(object_mask, GC_PR_FGD, object_mask, CMP_EQ);
+			curr_gray.copyTo(object_cutout, object_mask);
+			AddToDebugImages(&object_cutout,"object-cutout");*/
+
 			x_pos = object_bounding_rectangle.x + object_bounding_rectangle.width / 2;
 			y_pos = object_bounding_rectangle.y + object_bounding_rectangle.height / 2;
 			WritePosition(x_pos, y_pos);
 		}
+
+		finish = getTickCount();
+		double seconds = getTickFrequency() / (finish - start);
+		putText(curr_bgr_frame, to_string(seconds), Point(10, 30), CV_FONT_HERSHEY_PLAIN, 1, Scalar(0, 0, 0));
+		
 		if (debug)
 		{
 			ShowDebugImages();
@@ -364,6 +384,7 @@ public:
 		{
 			rectangle(curr_bgr_frame, initial_click_point, current_mouse_point, Scalar(0, 0, 0));
 		}
+
 		imshow(MAIN_WINDOW, curr_bgr_frame);
 		previous_transform = current_transform.clone();
 		prev_gray = curr_gray.clone();
@@ -427,7 +448,7 @@ void main(int argc, char* argv[])
 	optparse.add_option("--infile").help("select source for tracking");
 	optparse.add_option("--outlog").help("select file for output");
 	optparse.add_option("--outvideo").help("select file for video output");
-	optparse.add_option("--debug").action("store_false").help("show debug windows");
+	optparse.add_option("--debug").action("store_true").help("show debug windows");
 	optparse.add_option("--recording").action("store_false").help("record the tracking process (just the main window)");
 
 	Values& options = optparse.parse_args(argc, argv);
