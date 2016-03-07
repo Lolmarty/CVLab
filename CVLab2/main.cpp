@@ -44,7 +44,7 @@ class GenericClassnameOneTracker9000
 	static Point initial_click_point, current_mouse_point;
 
 	//routine runtime parameters
-	vector<Mat*> debug_images;
+	vector<Mat> debug_images;
 	vector<char*> debug_image_labels;
 	Mat current_transform, previous_transform;
 	Mat curr_bgr_frame, curr_gray, prev_gray;
@@ -74,13 +74,11 @@ public:
 		logger.close();
 	}
 
-	void AddToDebugImages(Mat* image_pointer, char* label_pointer)
+	void AddToDebugImages(Mat image_pointer, char* label_pointer)
 	{
-		if (find(debug_images.begin(), debug_images.end(), image_pointer) == debug_images.end())
-		{
-			debug_images.push_back(image_pointer);
-			debug_image_labels.push_back(label_pointer);
-		}
+		Mat temp = image_pointer;
+		debug_images.push_back(temp);
+		debug_image_labels.push_back(label_pointer);
 	}
 
 	void ShowDebugImages()
@@ -90,7 +88,7 @@ public:
 			int item_count = debug_images.size();
 			int max_images_width = 4;
 			int max_images_height = item_count / max_images_width + ((item_count % max_images_width) ? 1 : 0);
-			Mat full_image(1, 1, (*debug_images[0]).type());
+			Mat full_image(1, 1, debug_images[0].type());
 			int content_height = 0;
 			int content_width = 0;
 			int counter = 0;
@@ -99,7 +97,7 @@ public:
 			{
 				for (int xpos = 0; xpos < max_images_width && counter < item_count; xpos++, counter++)
 				{
-					Mat temp = (*debug_images[counter]).clone();
+					Mat temp = debug_images[counter].clone();
 
 					putText(temp, debug_image_labels[counter], Point(20, 20), CV_FONT_HERSHEY_PLAIN, 1, Scalar(255, 255, 255));
 
@@ -121,6 +119,8 @@ public:
 			}
 			resize(full_image, full_image, Size(0, 0), DEBUG_DOWNSCALE, DEBUG_DOWNSCALE);
 			imshow(DEBUG_WINDOW, full_image);
+			debug_images.clear();
+			debug_image_labels.clear();
 		}
 	}
 
@@ -163,24 +163,24 @@ public:
 				/* user is dragging the mouse */
 			case CV_EVENT_MOUSEMOVE:
 			{
-				//keep track of current mouse point
-				current_mouse_point = cv::Point(x, y);
-				//user has moved the mouse while clicking and dragging
-				mouse_is_moving = true;
-				break;
+									   //keep track of current mouse point
+									   current_mouse_point = cv::Point(x, y);
+									   //user has moved the mouse while clicking and dragging
+									   mouse_is_moving = true;
+									   break;
 			}
-			/* user has released left button */
+				/* user has released left button */
 			case CV_EVENT_LBUTTONUP:
 			{
-				//reset boolean variables
-				mouse_is_dragging = false;
-				mouse_is_moving = false;
-				rectangle_selected = true;
-				Mat hsv_feed;
-				cvtColor(*videoFeed, hsv_feed, CV_BGR2HSV);
-				Mat chunk(hsv_feed, Rect(initial_click_point, current_mouse_point));
-				GetHSVBoundaries(chunk);
-				break;
+									   //reset boolean variables
+									   mouse_is_dragging = false;
+									   mouse_is_moving = false;
+									   rectangle_selected = true;
+									   Mat hsv_feed;
+									   cvtColor(*videoFeed, hsv_feed, CV_BGR2HSV);
+									   Mat chunk(hsv_feed, Rect(initial_click_point, current_mouse_point));
+									   GetHSVBoundaries(chunk);
+									   break;
 			}
 			}
 		}
@@ -257,70 +257,73 @@ public:
 		Mat stabilized, stab_diff;
 		warpAffine(prev_gray, stabilized, current_transform, prev_gray.size());
 		absdiff(stabilized, curr_gray, stab_diff);
-		AddToDebugImages(&stab_diff, "stab_diff");
+		AddToDebugImages(stab_diff, "stab_diff");
 
 		Mat block(prev_gray.size(), prev_gray.type(), Scalar(255));
-		Mat rotated_block;
-		warpAffine(block, rotated_block, current_transform, block.size());
+		Mat rotated_block = block.clone();
+		int THICKNESS = int(sqrt(current_transform.at<double>(0, 2)*current_transform.at<double>(0, 2) + current_transform.at<double>(1, 2)*current_transform.at<double>(1, 2)));
+		rectangle(rotated_block, Rect(0, 0, rotated_block.cols , rotated_block.rows), Scalar(0), THICKNESS);
+		warpAffine(rotated_block, rotated_block, current_transform, block.size());
+		AddToDebugImages(rotated_block, "rotated-block");
 		Mat rotational_compensating_mask;
 		absdiff(rotated_block, block, rotational_compensating_mask);
 		bitwise_not(rotational_compensating_mask, rotational_compensating_mask);
-		//bitwise_and(rotational_compensating_mask, stab_diff, stab_diff);
-		AddToDebugImages(&rotational_compensating_mask, "rotational_compensating_mask");
+		bitwise_and(rotational_compensating_mask, stab_diff, stab_diff);
+		AddToDebugImages(rotational_compensating_mask, "rotational_compensating_mask");
 
 
 		Mat element = getStructuringElement(MORPH_RECT, Size(BLUR_SIZE, BLUR_SIZE));
 		Mat diff_closed;
 		morphologyEx(stab_diff, diff_closed, MORPH_CLOSE, element);
-		AddToDebugImages(&diff_closed, "diff_closed");
+		AddToDebugImages(diff_closed, "diff_closed");
 
 		Mat diff_closed_blur;
 		blur(diff_closed, diff_closed_blur, Size(BLUR_SIZE, BLUR_SIZE));
-		AddToDebugImages(&diff_closed_blur, "diff_closed_blur");
+		AddToDebugImages(diff_closed_blur, "diff_closed_blur");
 
 		Mat diff_closed_blur_threshold;
 		threshold(diff_closed_blur, diff_closed_blur_threshold, SENSITIVITY_VALUE, 255, THRESH_BINARY);
-		AddToDebugImages(&diff_closed_blur_threshold, "diff_closed_blur_threshold");
+		AddToDebugImages(diff_closed_blur_threshold, "diff_closed_blur_threshold");
 		//Diff Section End
 
 		//Color Section
 		Mat hsv_in_range;
 		inRange(curr_hsv_frame, hsv_min, hsv_max, hsv_in_range);
-		AddToDebugImages(&hsv_in_range, "hsv_in_range");
+		AddToDebugImages(hsv_in_range, "hsv_in_range");
 
 		Mat hsv_in_range_closed;
 		morphologyEx(hsv_in_range, hsv_in_range_closed, MORPH_CLOSE, element);
-		AddToDebugImages(&hsv_in_range_closed, "hsv_in_range_closed");
+		AddToDebugImages(hsv_in_range_closed, "hsv_in_range_closed");
 
 		Mat hsv_in_range_closed_blur;
 		blur(hsv_in_range_closed, hsv_in_range_closed_blur, Size(BLUR_SIZE, BLUR_SIZE));
-		AddToDebugImages(&hsv_in_range_closed_blur, "hsv_in_range_closed_blur");
+		AddToDebugImages(hsv_in_range_closed_blur, "hsv_in_range_closed_blur");
 
 		Mat hsv_in_range_closed_blur_threshold;
 		threshold(hsv_in_range_closed_blur, hsv_in_range_closed_blur_threshold, SENSITIVITY_VALUE, 255, THRESH_BINARY);
-		AddToDebugImages(&hsv_in_range_closed_blur_threshold, "hsv_in_range_closed_blur_threshold");
+		AddToDebugImages(hsv_in_range_closed_blur_threshold, "hsv_in_range_closed_blur_threshold");
 		//Color Section End
 
 		//Union Section
 		Mat raw_mask;
 		bitwise_and(diff_closed_blur_threshold, hsv_in_range, raw_mask);
-		AddToDebugImages(&raw_mask, "raw_mask");
+		AddToDebugImages(raw_mask, "raw_mask");
 
 		Mat threshold_mask;
 		threshold(raw_mask, threshold_mask, SENSITIVITY_VALUE, 255, THRESH_BINARY);
-		AddToDebugImages(&threshold_mask, "threshold_mask");
+		AddToDebugImages(threshold_mask, "threshold_mask");
 
 		Mat threshold_closed_mask;
 		morphologyEx(threshold_mask, threshold_closed_mask, MORPH_CLOSE, element);
-		AddToDebugImages(&threshold_closed_mask, "threshold_closed_mask");
+		AddToDebugImages(threshold_closed_mask, "threshold_closed_mask");
 
 		Mat threshold_closed_blur_mask;
 		blur(threshold_closed_mask, threshold_closed_blur_mask, Size(BLUR_SIZE, BLUR_SIZE));
-		AddToDebugImages(&threshold_closed_blur_mask, "threshold_closed_blur_mask");
+		AddToDebugImages(threshold_closed_blur_mask, "threshold_closed_blur_mask");
 
 		Mat final_mask;
 		threshold(threshold_closed_blur_mask, final_mask, SENSITIVITY_VALUE, 255, THRESH_BINARY);
-		AddToDebugImages(&final_mask, "final_mask");
+		AddToDebugImages(final_mask, "final_mask");
 		//Union Section end
 
 		Rect object_bounding_rectangle;
@@ -332,14 +335,14 @@ public:
 
 		for (vector<Point> contour : contours)
 		{
-		object_bounding_rectangle = boundingRect(contour);
-		rectangle(curr_bgr_frame, object_bounding_rectangle, Scalar(0, 150, 0));
+			object_bounding_rectangle = boundingRect(contour);
+			rectangle(curr_bgr_frame, object_bounding_rectangle, Scalar(0, 150, 0));
 		}
 		int x_pos = -1;
 		int y_pos = -1;
-		
+
 		//Mat object_cutout(curr_gray.size(), curr_gray.type());
-		
+
 		if (contours.size() > 0)//hotfix. find a better solution
 		{
 			object_bounding_rectangle = boundingRect(contours.back());
@@ -349,7 +352,7 @@ public:
 			grabCut(curr_bgr_frame, object_mask, object_bounding_rectangle, bg_model, fg_model, 1, GC_INIT_WITH_RECT);
 			compare(object_mask, GC_PR_FGD, object_mask, CMP_EQ);
 			curr_gray.copyTo(object_cutout, object_mask);
-			AddToDebugImages(&object_cutout,"object-cutout");*/
+			AddToDebugImages(object_cutout,"object-cutout");*/
 
 			x_pos = object_bounding_rectangle.x + object_bounding_rectangle.width / 2;
 			y_pos = object_bounding_rectangle.y + object_bounding_rectangle.height / 2;
@@ -359,7 +362,7 @@ public:
 		finish = getTickCount();
 		double seconds = getTickFrequency() / (finish - start);
 		putText(curr_bgr_frame, to_string(seconds), Point(10, 30), CV_FONT_HERSHEY_PLAIN, 1, Scalar(0, 0, 0));
-		
+
 		if (debug)
 		{
 			ShowDebugImages();
