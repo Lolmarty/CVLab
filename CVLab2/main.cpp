@@ -17,7 +17,6 @@
 using namespace cv;
 using namespace std;
 using namespace optparse;
-#define HORIZONTAL_BORDER_CROP 20
 #define FRAMES_PER_SECOND 15
 
 #define MAIN_WINDOW "poots"
@@ -26,13 +25,14 @@ using namespace optparse;
 
 #define SENSITIVITY_VALUE 15
 #define BLUR_SIZE 20
-#define CLOSING_SIZE Size(40,40)
-#define FRAME_CAP 20
-#define MOG_HISTORY 50
-#define MIXTURES 3
-#define BACKGROUND_RATIO 0.8
-#define NOISE_SIGMA 0.05
-#define LEARNING_RATE 0.1
+#define CLOSING_SIZE Size(30,30)
+#define H_ADDED_RANGE 0.01
+#define S_ADDED_RANGE 0.03
+#define V_ADDED_RANGE 0.9
+Mat HSV_RANGE_ADDER = (Mat_<double>(4, 4) << H_ADDED_RANGE, 0, 0,0,
+	0, S_ADDED_RANGE, 0,0,
+	0, 0, V_ADDED_RANGE,0,
+	0,0,0,1);
 
 class GenericClassnameOneTracker9000
 {
@@ -64,9 +64,10 @@ public:
 		capture = VideoCapture(filename);
 		logger.open(log_name);
 		logger << filename << endl;
-		Mat tmp;
-		capture.read(tmp);
-		tracking_recorder.open(output_path, CV_FOURCC('M', 'P', '4', '3'), FRAMES_PER_SECOND, tmp.size());
+		//int codec = static_cast<int>(inputVideo.get(CV_CAP_PROP_FOURCC));
+		Size frame_size = Size((int)capture.get(CV_CAP_PROP_FRAME_WIDTH),
+			(int)capture.get(CV_CAP_PROP_FRAME_HEIGHT));
+		tracking_recorder.open(output_path, CV_FOURCC('M', 'P', '4', '3'), capture.get(CV_CAP_PROP_FPS), frame_size);
 	}
 
 	~GenericClassnameOneTracker9000()
@@ -75,7 +76,7 @@ public:
 		logger.close();
 	}
 
-	void AddToDebugImages(Mat image,string label)
+	void AddToDebugImages(Mat image, string label)
 	{
 		Mat temp = image;
 		debug_images.push_back(temp);
@@ -185,23 +186,6 @@ public:
 			}
 			}
 		}
-
-		if (event == CV_EVENT_RBUTTONDOWN){
-			//user has clicked right mouse button
-			//Reset HSV Values
-			/*H_MIN = 0;
-			S_MIN = 0;
-			V_MIN = 0;
-			H_MAX = 255;
-			S_MAX = 255;
-			V_MAX = 255;*/
-
-		}
-		if (event == CV_EVENT_MBUTTONDOWN){
-
-			//user has clicked middle mouse button
-			//enter code here if needed.
-		}
 	}
 
 	void WritePosition(int X, int Y)
@@ -252,6 +236,7 @@ public:
 			running = false;
 			return; // I DON'T LIKE IT
 		}
+
 		Mat curr_hsv_frame;
 		cvtColor(curr_bgr_frame, curr_hsv_frame, CV_BGR2HSV);
 		cvtColor(curr_bgr_frame, curr_gray, CV_BGR2GRAY);
@@ -260,10 +245,9 @@ public:
 		vector <uchar> status;
 		vector <float> err;
 
-		goodFeaturesToTrack(prev_gray, prev_corner, 200, 0.01, 30);
+		goodFeaturesToTrack(prev_gray, prev_corner, 200, 0.1, 30);
 		calcOpticalFlowPyrLK(prev_gray, curr_gray, prev_corner, cur_corner, status, err);
 
-		// weed out bad matches
 		for (size_t i = 0; i < status.size(); i++) {
 			if (status[i]) {
 				prev_corner2.push_back(prev_corner[i]);
@@ -298,7 +282,6 @@ public:
 		stab_diff = Close(stab_diff, "stab_diff");
 		stab_diff = Blur(stab_diff, "stab_diff");
 		stab_diff = Threshold(stab_diff, "stab_diff");
-		Mat element = getStructuringElement(MORPH_RECT, Size(BLUR_SIZE, BLUR_SIZE));
 
 
 		//Color Section
@@ -309,6 +292,30 @@ public:
 		hsv_in_range = Close(hsv_in_range, "hsv_in_range");
 		hsv_in_range = Blur(hsv_in_range, "hsv_in_range");
 		hsv_in_range = Threshold(hsv_in_range, "hsv_in_range");
+
+		Mat hsv_in_expanded_range;
+		Scalar hsv_min_expanded = hsv_min - HSV_RANGE_ADDER*(hsv_max - hsv_min);
+		Scalar hsv_max_expanded = hsv_max + HSV_RANGE_ADDER*(hsv_max - hsv_min);
+		inRange(curr_hsv_frame, hsv_min_expanded, hsv_max_expanded, hsv_in_expanded_range);
+		AddToDebugImages(hsv_in_expanded_range, "hsv_in_expanded_range");
+
+		Mat canny_output;
+		vector<vector<Point> > canny_contours;
+		vector<Vec4i> canny_hierarchy;
+
+		Canny(curr_gray, canny_output, 80, 240, 3);
+		/// Find contours
+		findContours(canny_output, canny_contours, canny_hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
+
+		/// Draw contours
+		Mat drawing = Mat::zeros(canny_output.size(), CV_8UC1);
+		for (int i = 0; i< canny_contours.size(); i++)
+		{
+			Scalar color = Scalar(255, 255, 255);
+			drawContours(drawing, canny_contours, i, color, 2, 8, canny_hierarchy, 0, Point());
+		}
+		AddToDebugImages(canny_output, "conrours");
+		AddToDebugImages(drawing, "other_contours");
 
 		//Union Section
 		Mat raw_mask;
@@ -324,7 +331,7 @@ public:
 
 		raw_mask = Threshold(raw_mask, "raw_mask");
 		raw_mask = Close(raw_mask, "raw_mask");
-		raw_mask = Blur(raw_mask, "raw_mask");
+		//raw_mask = Blur(raw_mask, "raw_mask");
 		raw_mask = Threshold(raw_mask, "raw_mask");
 
 		Rect object_bounding_rectangle;
@@ -343,7 +350,7 @@ public:
 		int y_pos = -1;
 
 
-		if (contours.size() > 0)//hotfix. find a better solution
+		if (contours.size() > 0)//stalefix. //TODO:find a better solution
 		{
 			object_bounding_rectangle = boundingRect(contours.back());
 			rectangle(curr_bgr_frame, object_bounding_rectangle, Scalar(0, 0, 0));
@@ -362,6 +369,11 @@ public:
 			char* text = new char[10];
 			sprintf(text, "x:%d x:%d", x_pos, y_pos);
 			putText(curr_bgr_frame, text, object_bounding_rectangle.tl(), FONT_HERSHEY_PLAIN, 1, Scalar(0, 0, 0));
+			
+			for (int i = 0; i < prev_corner2.size(); i++)
+			{
+				arrowedLine(curr_bgr_frame, prev_corner2[i], cur_corner2[i], CV_RGB(0, 255, 0));
+			}
 		}
 		else
 		{
@@ -434,8 +446,8 @@ bool GenericClassnameOneTracker9000::mouse_is_moving = false;
 bool GenericClassnameOneTracker9000::rectangle_selected = false;
 Point GenericClassnameOneTracker9000::initial_click_point = Point();
 Point GenericClassnameOneTracker9000::current_mouse_point = Point();
-Scalar GenericClassnameOneTracker9000::hsv_min = Scalar(0, 0, 0);
-Scalar GenericClassnameOneTracker9000::hsv_max = Scalar(255, 255, 255);
+Scalar GenericClassnameOneTracker9000::hsv_min = Scalar(-1, -1, -1);
+Scalar GenericClassnameOneTracker9000::hsv_max = Scalar(-1, -1, -1);
 //gee this is stupid
 
 void main(int argc, char* argv[])

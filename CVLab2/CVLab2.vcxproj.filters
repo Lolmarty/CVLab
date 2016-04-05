@@ -32,5 +32,8 @@
     <ClInclude Include="OptionParser.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="Tracker.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
