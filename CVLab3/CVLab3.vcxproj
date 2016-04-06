@@ -40,7 +40,7 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
-    <NuGetPackageImportStamp>dcb3484a</NuGetPackageImportStamp>
+    <NuGetPackageImportStamp>b9f08bae</NuGetPackageImportStamp>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -72,7 +72,11 @@
     <ClCompile Include="IMaskHandler.cpp" />
     <ClCompile Include="Logger.cpp" />
     <ClCompile Include="Settings.cpp" />
+    <ClCompile Include="Tracker.cpp" />
     <ClCompile Include="WindowHandler.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
