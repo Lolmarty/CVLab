@@ -71,12 +71,16 @@
     <ClCompile Include="IMaskGenerator.cpp" />
     <ClCompile Include="IMaskHandler.cpp" />
     <ClCompile Include="Logger.cpp" />
+    <ClCompile Include="main.cpp" />
     <ClCompile Include="Settings.cpp" />
     <ClCompile Include="Tracker.cpp" />
     <ClCompile Include="WindowHandler.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="WindowHandler.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
