@@ -80,13 +80,14 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Extensions.h" />
     <ClInclude Include="Observer.h" />
     <ClInclude Include="Settings.h" />
     <ClInclude Include="Tracker.h" />
     <ClInclude Include="WindowHandler.h" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="Settings.txt"/>
+    <Text Include="Settings.txt" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Settings.txt">

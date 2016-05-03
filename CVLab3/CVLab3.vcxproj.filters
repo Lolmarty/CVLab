@@ -56,6 +56,9 @@
     <ClInclude Include="Settings.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="Extensions.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="Settings.txt">

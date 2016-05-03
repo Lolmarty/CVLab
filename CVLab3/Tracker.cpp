@@ -1,7 +1,9 @@
 #include <opencv/highgui.h>
+#include <iostream>
 
 #include "WindowHandler.h"
 #include "Tracker.h"
+#include "Settings.h"
 
 namespace Tracking
 {
@@ -38,6 +40,7 @@ namespace Tracking
 	}
 	void Tracker::Main()
 	{
+		std::cout << Settings::Instance().StrGet("MAIN_WINDOW") << std::endl;
 		while (appIsRunning)
 		{
 			WindowHandler::Instance().ShowMain(cv::imread("../assets/sky_xl.jpg"));
