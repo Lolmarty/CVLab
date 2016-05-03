@@ -40,7 +40,6 @@ namespace Tracking
 	}
 	void Tracker::Main()
 	{
-		std::cout << Settings::Instance().StrGet("MAIN_WINDOW") << std::endl;
 		while (appIsRunning)
 		{
 			WindowHandler::Instance().ShowMain(cv::imread("../assets/sky_xl.jpg"));

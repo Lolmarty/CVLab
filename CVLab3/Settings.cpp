@@ -3,6 +3,7 @@
 
 #include "Settings.h"
 #include "Extensions.h"
+#include <opencv2/core/core.hpp>
 
 namespace Tracking
 {
@@ -29,8 +30,8 @@ namespace Tracking
 			else if (type == "string") stringSettings[setting] = value;
 			else
 			{
-				std::string exceptionTemplate = "{0}";
-				throw new std::exception();
+				std::string exceptionText = cv::format("%s is an unknown type.", type);
+				throw new std::exception(exceptionText.c_str());
 			}
 		}
 	}
