@@ -28,18 +28,14 @@ namespace Tracking
 	{
 		appIsRunning = false;
 	}
-
 	void Tracker::PauseRoutine()
 	{
 
 	}
-
 	void Tracker::TrackingRoutine()
 	{
 
 	}
-
-
 	void Tracker::Main()
 	{
 		while (appIsRunning)
