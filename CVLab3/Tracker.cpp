@@ -1,21 +1,50 @@
 #include <opencv/highgui.h>
 
 #include "WindowHandler.h"
+#include "Tracker.h"
 
 namespace Tracking
 {
-	class Tracker
+	Tracker::Tracker()
 	{
-	public:
-		Tracker(){};
-		~Tracker(){};
-		void Main()
+		WindowHandler::Instance().AttachTracking(this);
+		showDebug = true;
+		appIsRunning = true;
+		paused = false;
+	}
+	Tracker::~Tracker()
+	{
+		
+	}
+	void Tracker::TogglePause()
+	{
+		paused = !paused;
+	}
+	void Tracker::ToggleDebug()
+	{
+		showDebug = !showDebug;
+	}
+	void Tracker::Stop()
+	{
+		appIsRunning = false;
+	}
+
+	void Tracker::PauseRoutine()
+	{
+
+	}
+
+	void Tracker::TrackingRoutine()
+	{
+
+	}
+
+
+	void Tracker::Main()
+	{
+		while (appIsRunning)
 		{
-			while (true)
-			{
-				WindowHandler::Instance().ShowMain(cv::imread("../assets/sky_xl.jpg"));
-				if (cv::waitKey(10)=='p') break;
-			}
-		};
+			WindowHandler::Instance().ShowMain(cv::imread("../assets/sky_xl.jpg"));
+		}
 	};
 }

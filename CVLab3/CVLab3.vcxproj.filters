@@ -47,5 +47,11 @@
     <ClInclude Include="WindowHandler.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="Observer.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Tracker.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
