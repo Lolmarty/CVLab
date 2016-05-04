@@ -16,19 +16,9 @@ namespace Tracking
 			return singletonWindowHandlerInstance;
 		}
 
-		void ShowMain(class cv::Mat image)
-		{
-			if (mouseIsDragging) cv::rectangle(image, initialMousePoint, currentMousePoint, cv::Scalar(0,0,0));
-			cv::imshow(mainWindowName, image);
-			switch (tolower(cv::waitKey(1)))
-			{
-			case 'd':trackingObserver->ToggleDebug(); break;
-			case 27: trackingObserver->Stop(); break;
-			case 'p':trackingObserver->TogglePause(); break;
-			case ' ':trackingObserver->TogglePause(); break;
-			//case 'r':recording = !recording; break;
-			}
-		}
+		void ShowMain(cv::Mat image);
+
+		void ShowDebug(cv::Mat image);
 
 		void AttachTracking(Tracker* tracker)
 		{
@@ -54,29 +44,7 @@ namespace Tracking
 		static bool rectangleSelected;
 		static cv::Point initialMousePoint;
 		static cv::Point currentMousePoint;
-		static void ClickAndDragRectangle(int event, int x, int y, int flags, void* param)
-		{
-			if (!mouseIsDragging && event == CV_EVENT_LBUTTONDOWN)
-			{
-				initialMousePoint = cv::Point(x, y);
-				mouseIsDragging = true;
-				rectangleSelected = false;
-			}
-			if (mouseIsDragging){
-				switch (event)
-				{
-				case CV_EVENT_MOUSEMOVE:
-					currentMousePoint = cv::Point(x, y);
-					mouseIsMoving = true;
-					break;
-				case CV_EVENT_LBUTTONUP:
-					mouseIsDragging = false;
-					mouseIsMoving = false;
-					rectangleSelected = true;
-					break;
-				}
-			}
-		}
+		static void ClickAndDragRectangle(int event, int x, int y, int flags, void* param);
 
 		~WindowHandler()
 		{

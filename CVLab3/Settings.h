@@ -11,9 +11,10 @@ namespace Tracking
 			return singletonSettingsInstance;
 		}
 
-		inline int IntGet(std::string keyword){ return intSettings[keyword]; }
-		inline double DoubleGet(std::string keyword){ return doubleSettings[keyword]; }
-		inline std::string StringGet(std::string keyword){ return stringSettings[keyword]; }
+		int IntGet(std::string keyword){ return intSettings[keyword]; }
+		double DoubleGet(std::string keyword){ return doubleSettings[keyword]; }
+		std::string StringGet(std::string keyword){ return stringSettings[keyword]; }
+		bool BoolGet(std::string keyword){ return boolSettings[keyword]; }
 
 		void Update(int argc, char* argv[]);
 	private:
@@ -21,6 +22,7 @@ namespace Tracking
 		std::map<std::string, std::string> stringSettings;
 		std::map<std::string, int> intSettings;
 		std::map<std::string, double> doubleSettings;
+		std::map<std::string, bool> boolSettings;
 
 		Settings();
 		~Settings(){}

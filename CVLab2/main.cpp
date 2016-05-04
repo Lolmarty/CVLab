@@ -17,7 +17,6 @@
 using namespace cv;
 using namespace std;
 using namespace optparse;
-#define FRAMES_PER_SECOND 15
 
 #define MAIN_WINDOW "poots"
 #define DEBUG_WINDOW "debug"
