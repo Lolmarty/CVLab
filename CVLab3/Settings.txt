@@ -1,0 +1,12 @@
+MAIN_WINDOW = string : poots
+DEBUG_WINDOW = string : debug
+DEBUG_DOWNSCALE = double : 0.5
+SENSITIVITY_VALUE = int : 15
+BLUR_SIZE_X = int : 20
+BLUR_SIZE_Y = int : 20
+CLOSING_SIZE_X = int : 30
+CLOSING_SIZE_Y = int : 30
+H_ADDED_RANGE = double : 0.01
+S_ADDED_RANGE = double : 0.03
+V_ADDED_RANGE = double : 0.9
+MAX_IMAGES_WIDTH = int : 4
