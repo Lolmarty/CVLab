@@ -1,4 +1,3 @@
-#include <string>
 #include <map>
 
 namespace Tracking
@@ -12,7 +11,11 @@ namespace Tracking
 			return singletonSettingsInstance;
 		}
 
-		std::string StrGet(std::string keyword){ return stringSettings[keyword]; }
+		inline int IntGet(std::string keyword){ return intSettings[keyword]; }
+		inline double DoubleGet(std::string keyword){ return doubleSettings[keyword]; }
+		inline std::string StringGet(std::string keyword){ return stringSettings[keyword]; }
+
+		void Update(int argc, char* argv[]);
 	private:
 		static std::string settingsPath;
 		std::map<std::string, std::string> stringSettings;
@@ -20,9 +23,6 @@ namespace Tracking
 		std::map<std::string, double> doubleSettings;
 
 		Settings();
-		~Settings()
-		{
-
-		}
+		~Settings(){}
 	};
 }

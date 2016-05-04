@@ -4,6 +4,7 @@
 #include "Settings.h"
 #include "Extensions.h"
 #include <opencv2/core/core.hpp>
+#include "OptionParser.h"
 
 namespace Tracking
 {
@@ -34,5 +35,18 @@ namespace Tracking
 				throw new std::exception(exceptionText.c_str());
 			}
 		}
+	}
+
+	void Settings::Update(int argc, char* argv[])
+	{
+		optparse::OptionParser optparse = optparse::OptionParser();
+		optparse.add_option("--inputfile").help("Select the path to the video source file that will be used for tracking.");
+		optparse.add_option("--outlog").help("Select the path to the log file that will be used for log output.");
+		//optparse.add_option("--outvideo").help("select file for video output");
+		optparse.add_option("--debug").action("store_true").help("Include if it is needed to show debug windows."); //TODO: At all/from start?
+		//optparse.add_option("--recording").action("store_false").help("record the tracking process (just the main window)");
+		//options["inputfile"], options["outlog"], options["outvideo"], options.is_set("debug"), options.is_set("recording")
+		optparse::Values& options = optparse.parse_args(argc, argv);
+		stringSettings["inputfile"] = options["inputfile"];
 	}
 }

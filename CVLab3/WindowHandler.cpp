@@ -12,8 +12,8 @@ namespace Tracking
 	WindowHandler::WindowHandler()
 	{
 		trackingObserver = nullptr;
-		mainWindowName = Settings::Instance().StrGet("MAIN_WINDOW");
-		debugWindowName = Settings::Instance().StrGet("DEBUG_WINDOW");
+		mainWindowName = Settings::Instance().StringGet("MAIN_WINDOW");
+		debugWindowName = Settings::Instance().StringGet("DEBUG_WINDOW");
 		cv::namedWindow(mainWindowName);
 		cv::namedWindow(debugWindowName);
 		cv::setMouseCallback(mainWindowName, ClickAndDragRectangle);
