@@ -1,3 +1,5 @@
+#ifndef SETTINGS_HEADER
+#define SETTINGS_HEADER
 #include <map>
 
 namespace Tracking
@@ -28,3 +30,4 @@ namespace Tracking
 		~Settings(){}
 	};
 }
+#endif

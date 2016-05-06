@@ -72,6 +72,7 @@
     <ClCompile Include="IMaskHandler.cpp" />
     <ClCompile Include="Logger.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Observer.cpp" />
     <ClCompile Include="OptionParser.cpp" />
     <ClCompile Include="Settings.cpp" />
     <ClCompile Include="Tracker.cpp" />
@@ -81,10 +82,12 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Debugger.h" />
     <ClInclude Include="Extensions.h" />
     <ClInclude Include="Observer.h" />
     <ClInclude Include="OptionParser.h" />
     <ClInclude Include="Settings.h" />
+    <ClInclude Include="Singleton.h" />
     <ClInclude Include="Tracker.h" />
     <ClInclude Include="WindowHandler.h" />
   </ItemGroup>

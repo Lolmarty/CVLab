@@ -15,7 +15,6 @@ namespace Tracking
 		mainWindowName = Settings::Instance().StringGet("MAIN_WINDOW");
 		debugWindowName = Settings::Instance().StringGet("DEBUG_WINDOW");
 		cv::namedWindow(mainWindowName);
-		cv::namedWindow(debugWindowName);
 		cv::setMouseCallback(mainWindowName, ClickAndDragRectangle);
 	}
 	void WindowHandler::ShowMain(cv::Mat image)
