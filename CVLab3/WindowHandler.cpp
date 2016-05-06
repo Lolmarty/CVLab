@@ -9,7 +9,7 @@ namespace Tracking
 	cv::Point WindowHandler::initialMousePoint = cv::Point();
 	cv::Point WindowHandler::currentMousePoint = cv::Point();
 
-	WindowHandler::WindowHandler()
+	WindowHandler::WindowHandler()//TODO: manage to integrate QT into this.
 	{
 		trackingObserver = nullptr;
 		mainWindowName = Settings::Instance().StringGet("MAIN_WINDOW");
