@@ -1,7 +1,10 @@
 #include <opencv2/core/core_c.h>
+#include <opencv2/contrib/contrib.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+
 #include "Debugger.h"
 #include "Settings.h"
-#include <opencv2/contrib/contrib.hpp>
+#include "WindowHandler.h"
 
 namespace Tracking
 {
@@ -28,27 +31,25 @@ namespace Tracking
 		int maxImagesHeight = itemCount / maxImagesWidth + ((itemCount % maxImagesWidth) ? 1 : 0);
 		int contentHeight = 0;
 		int contentWidth = 0;
-		cv::Mat fullImage(1, 1, iterator->second.type());
+		cv::Mat fullImage(1, 1, CV_8UC3);
 
 		for (int yPosition = 0; yPosition < maxImagesHeight && iterator != debugImages.end(); yPosition++)
 		{
 			for (int xPosition = 0; xPosition < maxImagesWidth && iterator != debugImages.end(); xPosition++, ++iterator)
 			{
 				cv::Mat temp = iterator->second.clone();
-				cv::putText(temp, iterator->first, cv::Point(20, 20), CV_FONT_HERSHEY_PLAIN, 1,cv::Scalar(255, 255, 255));
+				if (temp.channels() < 3) cv::cvtColor(temp, temp, CV_GRAY2BGR);
+				cv::putText(temp, iterator->first, cv::Point(20, 20), CV_FONT_HERSHEY_PLAIN, 1, cv::Scalar(255, 255, 255));
+
 				cv::Rect imagePlacementRect(contentWidth, contentHeight, temp.cols, temp.rows);
 				cv::Rect fullImageRect(0, 0, fullImage.cols, fullImage.rows);
 				bool isInside = (fullImageRect&imagePlacementRect) == imagePlacementRect;
 				if (!isInside)
 				{
 					cv::Mat tempFullImage((fullImage.rows >(imagePlacementRect.y + imagePlacementRect.height)) ? fullImage.rows : imagePlacementRect.y + imagePlacementRect.height,
-						(fullImage.cols > (imagePlacementRect.x + imagePlacementRect.width)) ? fullImage.cols : imagePlacementRect.x + imagePlacementRect.width, temp.type());
-					if (temp.type() != fullImage.type()) cv::cvtColor(fullImage, tempFullImage, temp.type());
-					else 
-					{
-						fullImage.copyTo(tempFullImage(fullImageRect));
-						fullImage = tempFullImage.clone();
-					}
+						(fullImage.cols > (imagePlacementRect.x + imagePlacementRect.width)) ? fullImage.cols : imagePlacementRect.x + imagePlacementRect.width, fullImage.type());
+					fullImage.copyTo(tempFullImage(fullImageRect));
+					fullImage = tempFullImage.clone();
 				}
 				temp.copyTo(fullImage(imagePlacementRect));
 				contentWidth = fullImage.cols;
@@ -56,5 +57,6 @@ namespace Tracking
 			contentWidth = 0;
 			contentHeight = fullImage.rows;
 		}
+		WindowHandler::Instance().ShowDebug(fullImage);
 	}
 }

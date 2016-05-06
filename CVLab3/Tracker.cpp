@@ -1,6 +1,9 @@
+#include <opencv2/imgproc/imgproc.hpp>
+
 #include "WindowHandler.h"
 #include "Tracker.h"
 #include "Settings.h"
+#include "Debugger.h"
 
 namespace Tracking
 {
@@ -35,6 +38,11 @@ namespace Tracking
 	void Tracker::TrackingRoutine()
 	{
 		capture.read(currentFrame);
+		cv::Mat currentGray;
+		cv::cvtColor(currentFrame, currentGray, CV_BGR2GRAY);
+		Debugger::Instance().AddImage("currentFrame", currentFrame);
+		Debugger::Instance().AddImage("currentGray", currentGray);
+		Debugger::Instance().Show();
 		WindowHandler::Instance().ShowMain(currentFrame);
 	}
 	void Tracker::Main()
