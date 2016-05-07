@@ -20,6 +20,9 @@ namespace Tracking
 
 		void Update(int argc, char* argv[]);
 	private:
+		//singleton stuff
+		Settings(Settings const&) = delete;
+		void operator=(Settings const&) = delete;
 		static std::string settingsPath;
 		std::map<std::string, std::string> stringSettings;
 		std::map<std::string, int> intSettings;

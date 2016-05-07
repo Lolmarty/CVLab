@@ -17,6 +17,9 @@ namespace Tracking
 		void AddVariable(std::string label, bool variable);
 		void Show();
 	private:
+		//singleton stuff
+		Debugger(Debugger const&) = delete;
+		void operator=(Debugger const&) = delete;
 		std::map<std::string, cv::Mat> debugImages;
 		std::map<std::string, std::string> debugVariables;
 		int maxImagesWidth;
