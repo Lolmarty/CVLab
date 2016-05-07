@@ -1,3 +1,5 @@
+#ifndef DEBUGGER_HEADER
+#define DEBUGGER_HEADER
 #include <opencv2/core/core.hpp>
 #include "Settings.h"
 
@@ -27,3 +29,4 @@ namespace Tracking
 	};
 
 }
+#endif
