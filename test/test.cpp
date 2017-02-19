@@ -70,16 +70,16 @@ public:
 		//detector = cv::Ptr<cv::FeatureDetector>(new cv::GFTTDetector());
 		// detector = cv::Ptr<cv::FeatureDetector>(new cv::MSER());
 		// detector = cv::Ptr<cv::FeatureDetector>(new cv::ORB());
-		detector = cv::Ptr<cv::FeatureDetector>(new cv::SIFT());
+		//detector = cv::Ptr<cv::FeatureDetector>(new cv::SIFT());
 		// detector = cv::Ptr<cv::FeatureDetector>(new cv::StarFeatureDetector());
-		//detector = cv::Ptr<cv::FeatureDetector>(new cv::SURF(600.0));
+		detector = cv::Ptr<cv::FeatureDetector>(new cv::SURF(600.0));
 		 //detector = cv::Ptr<cv::FeatureDetector>(new cv::BRISK());
 
 		// The extractor can be any of (see OpenCV features2d.hpp):
 		// extractor = cv::Ptr<cv::DescriptorExtractor>(new cv::BriefDescriptorExtractor());
 		// extractor = cv::Ptr<cv::DescriptorExtractor>(new cv::ORB());
-		extractor = cv::Ptr<cv::DescriptorExtractor>(new cv::SIFT());
-		//extractor = cv::Ptr<cv::DescriptorExtractor>(new cv::SURF(600.0));
+		//extractor = cv::Ptr<cv::DescriptorExtractor>(new cv::SIFT());
+		extractor = cv::Ptr<cv::DescriptorExtractor>(new cv::SURF(600.0));
 		// extractor = cv::Ptr<cv::DescriptorExtractor>(new cv::BRISK());
 		// extractor = cv::Ptr<cv::DescriptorExtractor>(new cv::FREAK());
 		objectCorners = std::vector<cv::Point2f>(4);
@@ -235,7 +235,7 @@ public:
 						cv::RANSAC,
 						1.0,
 						outlier_mask);
-					int inliers = 0, outliers = 0;
+					/*int inliers = 0, outliers = 0;
 					for (unsigned int k = 0; k < mpts_1.size(); ++k)
 					{
 						if (outlier_mask.at(k))
@@ -246,7 +246,7 @@ public:
 						{
 							++outliers;
 						}
-					}
+					}*/
 					std::vector<cv::Point2f> sceneCorners(4);
 
 					cv::perspectiveTransform(objectCorners, sceneCorners, H);
@@ -259,6 +259,17 @@ public:
 					std::vector<cv::KeyPoint> warpedObjPoints;
 					perspectiveTransformKeypoints(objectKeypoints, warpedObjPoints, H);
 					cv::drawKeypoints(display, warpedObjPoints, display, cv::Scalar(0, 196, 64));
+
+					std::vector<cv::KeyPoint> selectedPoints;
+					filterKeypointsInContour(sceneCorners, sceneKeypoints, selectedPoints);
+
+					cv::drawKeypoints(display, selectedPoints, display, cv::Scalar(196, 0, 64));
+
+					//objectKeypoints.clear();
+					std::vector<cv::KeyPoint> resetPoints;
+					invertHomography(selectedPoints, resetPoints,H);
+					objectKeypoints.insert(objectKeypoints.end(), resetPoints.begin(), resetPoints.end());
+
 				}
 
 				
@@ -278,6 +289,7 @@ public:
 
 	void perspectiveTransformKeypoints(std::vector<cv::KeyPoint> keypointsSrc, std::vector<cv::KeyPoint>& keypointsDst, cv::Mat Homography)
 	{
+		keypointsDst.clear();
 		for (cv::KeyPoint keyPoint : keypointsSrc)
 		{
 			cv::Mat_<double> initialPoint(3, 1);
@@ -290,7 +302,60 @@ public:
 		}
 	}
 
+	void filterKeypointsInContour(std::vector<cv::Point2f> contour, std::vector<cv::KeyPoint> keypointsSrc, std::vector<cv::KeyPoint>& keypointsDst)
+	{
+		keypointsDst.clear();
+		for (cv::KeyPoint keyPoint: keypointsSrc)
+		{
+			if(cv::pointPolygonTest(contour, keyPoint.pt, false)>0)
+				keypointsDst.push_back(keyPoint);
+		}
+	}
 
+	void invertHomography(std::vector<cv::KeyPoint> keypointsSrc, std::vector<cv::KeyPoint>& keypointsDst, cv::Mat Homography)
+	{
+		keypointsDst.clear();
+
+		cv::Mat_<double> invertedHomography;
+		cv::invert(Homography, invertedHomography);
+
+		double h0 = invertedHomography(0, 0);
+		double h1 = invertedHomography(0, 1);
+		double h2 = invertedHomography(0, 2);
+		double h3 = invertedHomography(1, 0);
+		double h4 = invertedHomography(1, 1);
+		double h5 = invertedHomography(1, 2);
+		double h6 = invertedHomography(2, 0);
+		double h7 = invertedHomography(2, 1);
+		double h8 = invertedHomography(2, 2);
+
+		for (cv::KeyPoint keyPoint : keypointsSrc)
+		{
+			double tx = (h0*keyPoint.pt.x + h1*keyPoint.pt.y + h2);
+			double ty = (h3*keyPoint.pt.x + h4*keyPoint.pt.y + h5);
+			double tz = (h6*keyPoint.pt.x + h7*keyPoint.pt.y + h8);
+			cv::Point2f point(tx / tz, ty / tz);
+			keypointsDst.push_back(cv::KeyPoint(point, keyPoint.size, keyPoint.angle, keyPoint.response, keyPoint.octave, keyPoint.class_id));
+		}
+
+
+		/*if (keypointsSrc.size() > 0){
+			double minX = keypointsSrc[0].pt.x;
+			double minY = keypointsSrc[0].pt.y;
+			for (cv::KeyPoint keyPoint : keypointsSrc)
+			{
+				if (keyPoint.pt.x < minX)
+					minX = keyPoint.pt.x;
+				if (keyPoint.pt.y < minY)
+					minY = keyPoint.pt.y;
+			}
+			for (cv::KeyPoint keyPoint : keypointsSrc)
+			{
+				cv::Point2f point(keyPoint.pt.x - minX, keyPoint.pt.y - minY);
+				keypointsDst.push_back(cv::KeyPoint(point, keyPoint.size, keyPoint.angle, keyPoint.response, keyPoint.octave, keyPoint.class_id));
+			}
+		}*/
+	}
 
 };
 
