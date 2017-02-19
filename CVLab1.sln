@@ -9,6 +9,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CVLab2", "CVLab2\CVLab2.vcx
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CVLab3", "CVLab3\CVLab3.vcxproj", "{C3DFA67E-C9C8-48D7-BD8C-AA060D245995}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test", "test\test.vcxproj", "{C180BE29-A225-4FE4-925A-8C4D4A83B7BE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -27,6 +29,10 @@ Global
 		{C3DFA67E-C9C8-48D7-BD8C-AA060D245995}.Debug|Win32.Build.0 = Debug|Win32
 		{C3DFA67E-C9C8-48D7-BD8C-AA060D245995}.Release|Win32.ActiveCfg = Release|Win32
 		{C3DFA67E-C9C8-48D7-BD8C-AA060D245995}.Release|Win32.Build.0 = Release|Win32
+		{C180BE29-A225-4FE4-925A-8C4D4A83B7BE}.Debug|Win32.ActiveCfg = Debug|Win32
+		{C180BE29-A225-4FE4-925A-8C4D4A83B7BE}.Debug|Win32.Build.0 = Debug|Win32
+		{C180BE29-A225-4FE4-925A-8C4D4A83B7BE}.Release|Win32.ActiveCfg = Release|Win32
+		{C180BE29-A225-4FE4-925A-8C4D4A83B7BE}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
